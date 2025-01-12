@@ -1,35 +1,69 @@
-pub fn correction(version: u32, error_correction: &str, combined_data: Vec<bool>) -> Vec<bool> {
+pub fn correction_interleave(version: u32, error_correction: &str, combined_data: Vec<bool>) -> Vec<bool> {
 
-    let (blocks_group1, blocks_group2) = split_into_blocks(combined_data, version, error_correction);
+    let blocks = split_into_blocks(combined_data, version, error_correction);
 
     let ec_codewords = ec_codewords(version, error_correction);
 
-    let mut ec_blocks_group1: Vec<Vec<u32>>= Vec::new();
+    let mut ec_blocks: Vec<Vec<Vec<bool>>>= Vec::new();
 
-    for i in 0..blocks_group1.len() {
-        let polynomial = build_polynomial(blocks_group1.get(i).unwrap().clone());
+    for i in 0..blocks.len() {
+        let polynomial = build_polynomial(blocks.get(i).unwrap().clone());
         let generator = generate_generator_polynomial(ec_codewords);
         let result = part0(ec_codewords, &generator, &polynomial);
-        ec_blocks_group1.push(result);
+        let mut ec_block: Vec<Vec<bool>> = Vec::new();
+        for j in 0..result.len() {
+            let mut data: Vec<bool> = Vec::new();
+            for k in 0..8 {
+                data.push((result[j] & (1 << (7-k))) != 0);
+            }
+            ec_block.push(data);
+        }
+
+        ec_blocks.push(ec_block);
     }
 
-    let mut ec_blocks_group2: Vec<Vec<u32>>= Vec::new();
 
-    for i in 0..blocks_group2.len() {
-        let polynomial = build_polynomial(blocks_group2.get(i).unwrap().clone());
-        let generator = generate_generator_polynomial(ec_codewords);
-        let result = part0(ec_codewords, &generator, &polynomial);
-        ec_blocks_group2.push(result);
+
+    let interleave_ec = interleave_blocks(&ec_blocks);
+    let interleave_data = interleave_blocks(&blocks);
+
+    let mut result: Vec<bool> = Vec::new();
+    for block in interleave_data.iter() {
+        result.extend_from_slice(block);
     }
 
+    for block in interleave_ec.iter() {
+        result.extend_from_slice(block);
+    }
+    
+    // fill remaining bits
+    let remainder_bits = get_remainder_bits(version);
+
+    result.extend_from_slice(&remainder_bits);
+
+    result
+
+}
 
 
+fn interleave_blocks(blocks: &Vec<Vec<Vec<bool>>>) -> Vec<Vec<bool>> {
+    let mut result: Vec<Vec<bool>> = Vec::new();
+    let mut max_length = 0;
+    for block in blocks.iter() {
+        if block.len() > max_length {
+            max_length = block.len();
+        }
+    }
 
+    for i in 0..max_length {
+        for block in blocks.iter() {
+            if block.len() > i {
+                result.push(block.get(i).unwrap().clone());
+            }
+        }
+    }
 
-    println!("{:?}", (ec_blocks_group1, ec_blocks_group2));
-
-    vec![]
-
+    result
 }
 
 fn build_polynomial(data: Vec<Vec<bool>>) -> Vec<(u32,u32)> {
@@ -226,7 +260,83 @@ fn generate_gf_tables() -> ([u8; 256], [u8; 256]) {
     (antilog_table, log_table)
 }
 
-// [[[blocksg1, amountg1, blocksg2, amountg2], ...], ...]
+
+fn split_into_blocks(mut combined_data: Vec<bool>, version: u32, error_correction: &str) -> Vec<Vec<Vec<bool>>> {
+
+    
+    let correction_level = match error_correction {
+        "L" => 0,
+        "M" => 1,
+        "Q" => 2,
+        "H" => 3,
+        _ => 0,
+    };
+
+    let block_lookup = BLOCK_LOOKUP[version as usize - 1][correction_level];
+
+    // group 1
+    let mut blocks: Vec<Vec<Vec<bool>>> = Vec::new();
+    let group1_blocks = block_lookup[0] as usize;
+    let group1_amount = block_lookup[1] as usize;
+
+    for _ in 0..group1_blocks {
+        let mut block: Vec<Vec<bool>> = Vec::new();
+        for _ in 0..group1_amount {
+            let mut data: Vec<bool> = Vec::new();
+            for _ in 0..8 {
+                data.push(combined_data.remove(0));
+            }
+
+            block.push(data);
+        }
+        blocks.push(block);
+    }
+    
+
+    let group2_blocks = block_lookup[2] as usize;
+    let group2_amount = block_lookup[3] as usize;
+
+    for _ in 0..group2_blocks {
+        let mut block: Vec<Vec<bool>> = Vec::new();
+        for _ in 0..group2_amount {
+            let mut data: Vec<bool> = Vec::new();
+            for _ in 0..8 {
+                data.push(combined_data.remove(0));
+            }
+            block.push(data);
+        }
+        blocks.push(block);
+    }
+
+    blocks
+}
+
+
+
+
+fn ec_codewords(version: u32, error_correction: &str) -> u32 {
+    let correction_level = match error_correction {
+        "L" => 0,
+        "M" => 1,
+        "Q" => 2,
+        "H" => 3,
+        _ => 0,
+    };
+
+    EC_CODEWORDS[version as usize - 1][correction_level] as u32
+}
+
+
+fn get_remainder_bits(version: u32) -> Vec<bool> {
+    let mut result: Vec<bool> = Vec::new();
+    let remaining = REMAINING_BITS[version as usize - 1];
+    for _ in 0..remaining {
+        result.push(false);
+    }
+    result
+}
+
+
 const BLOCK_LOOKUP: [[[u32; 4]; 4]; 40] = [
     // Version 1
     [[1, 19, 0, 0], [1, 16, 0, 0], [1, 13, 0, 0], [1, 9, 0, 0]],
@@ -310,59 +420,6 @@ const BLOCK_LOOKUP: [[[u32; 4]; 4]; 40] = [
     [[19, 118, 6, 119], [18, 47, 31, 48], [34, 24, 34, 25], [20, 15, 61, 16]],
 ];
 
-fn split_into_blocks(mut combined_data: Vec<bool>, version: u32, error_correction: &str) -> (Vec<Vec<Vec<bool>>>, Vec<Vec<Vec<bool>>>) {
-
-    
-    let correction_level = match error_correction {
-        "L" => 0,
-        "M" => 1,
-        "Q" => 2,
-        "H" => 3,
-        _ => 0,
-    };
-
-    let block_lookup = BLOCK_LOOKUP[version as usize - 1][correction_level];
-
-    // group 1
-    let mut blocks_group1: Vec<Vec<Vec<bool>>> = Vec::new();
-    let group1_blocks = block_lookup[0] as usize;
-    let group1_amount = block_lookup[1] as usize;
-
-    for _ in 0..group1_blocks {
-        let mut block: Vec<Vec<bool>> = Vec::new();
-        for _ in 0..group1_amount {
-            let mut data: Vec<bool> = Vec::new();
-            for _ in 0..8 {
-                data.push(combined_data.remove(0));
-            }
-
-            block.push(data);
-        }
-        blocks_group1.push(block);
-    }
-    
-
-    // group 2
-    let mut blocks_group2: Vec<Vec<Vec<bool>>> = Vec::new();
-    let group2_blocks = block_lookup[2] as usize;
-    let group2_amount = block_lookup[3] as usize;
-
-    for _ in 0..group2_blocks {
-        let mut block: Vec<Vec<bool>> = Vec::new();
-        for _ in 0..group2_amount {
-            let mut data: Vec<bool> = Vec::new();
-            for _ in 0..8 {
-                data.push(combined_data.remove(0));
-            }
-            block.push(data);
-        }
-        blocks_group2.push(block);
-    }
-
-    (blocks_group1, blocks_group2)
-}
-
-
 const EC_CODEWORDS: [[usize; 4]; 40] = [
     // Version 1-10
     [7, 10, 13, 17], [10, 16, 22, 28], [15, 26, 36, 44], [20, 36, 52, 64], 
@@ -385,16 +442,6 @@ const EC_CODEWORDS: [[usize; 4]; 40] = [
     [720, 1316, 1950, 2310], [750, 1372, 2040, 2430]
 ];
 
-fn ec_codewords(version: u32, error_correction: &str) -> u32 {
-    let correction_level = match error_correction {
-        "L" => 0,
-        "M" => 1,
-        "Q" => 2,
-        "H" => 3,
-        _ => 0,
-    };
 
-    EC_CODEWORDS[version as usize - 1][correction_level] as u32
-}
-
-
+const REMAINING_BITS: [u32; 40] = [
+    0,7,7,7,7,7,0,0,0,0,0,0,0,3,3,3,3,3,3,3,4,4,4,4,4,4,4,3,3,3,3,3,3,3,0,0,0,0,0,0];
