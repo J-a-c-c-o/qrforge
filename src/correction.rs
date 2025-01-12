@@ -2,35 +2,229 @@ pub fn correction(version: u32, error_correction: &str, combined_data: Vec<bool>
 
     let (blocks_group1, blocks_group2) = split_into_blocks(combined_data, version, error_correction);
 
+    let ec_codewords = ec_codewords(version, error_correction);
 
-    // nice print
+    let mut ec_blocks_group1: Vec<Vec<u32>>= Vec::new();
+
     for i in 0..blocks_group1.len() {
-        println!("Group 1 Block {}", i + 1);
-        for j in 0..blocks_group1[i].len() {
-            for k in 0..blocks_group1[i][j].len() {
-                print!("{}", if blocks_group1[i][j][k] { "1" } else { "0" });
-            }
-            print!(" ");
-        }
-        println!();
+        let polynomial = build_polynomial(blocks_group1.get(i).unwrap().clone());
+        let generator = generate_generator_polynomial(ec_codewords);
+        let result = part0(ec_codewords, &generator, &polynomial);
+        ec_blocks_group1.push(result);
     }
+
+    let mut ec_blocks_group2: Vec<Vec<u32>>= Vec::new();
 
     for i in 0..blocks_group2.len() {
-        println!("Group 2 Block {}", i + 1);
-        for j in 0..blocks_group2[i].len() {
-            for k in 0..blocks_group2[i][j].len() {
-                print!("{}", if blocks_group2[i][j][k] { "1" } else { "0" });
-            }
-            print!(" ");
-        }
-        println!();
+        let polynomial = build_polynomial(blocks_group2.get(i).unwrap().clone());
+        let generator = generate_generator_polynomial(ec_codewords);
+        let result = part0(ec_codewords, &generator, &polynomial);
+        ec_blocks_group2.push(result);
     }
 
-    println!();
 
-    Vec::new()
+
+
+
+    println!("{:?}", (ec_blocks_group1, ec_blocks_group2));
+
+    vec![]
+
 }
 
+fn build_polynomial(data: Vec<Vec<bool>>) -> Vec<(u32,u32)> {
+    let mut polynomial: Vec<(u32,u32)> = Vec::new();
+    for i in 0..data.len() {
+        let mut value = 0;
+        for j in 0..data[i].len() {
+            if data[i][j] {
+                value += 2u32.pow(7-j as u32);
+            }
+        }
+        polynomial.push((value, 15-i as u32));
+    }
+    polynomial
+}
+
+
+
+fn generate_generator_polynomial(ec_codewords: u32) -> Vec<(u32,u32)> {
+
+    let mut generator = recursive_generator((ec_codewords-1) as usize, vec![(0,1), (0,0)], 1);
+    
+    generator.sort_by(|a, b| b.1.cmp(&a.1));
+
+
+    generator
+    
+}
+
+
+fn recursive_generator(n: usize, polynomial: Vec<(u32,u32)>, a: u32) -> Vec<(u32,u32)> {
+    if n == 0 {
+        return polynomial;
+    }
+
+    let multiplier = vec![(0,1), (a,0)];
+    let mut new_polynomial_temp: Vec<(u32,u32)> = Vec::new();
+
+    // multiply
+    for (a,b) in polynomial.iter() {
+        for (c,d) in multiplier.iter() {
+            new_polynomial_temp.push(((a+c)%255, b+d));
+        }
+    }
+
+    // combine
+    let mut new_polynomial: Vec<(u32,u32)> = Vec::new();
+    for (a,b) in new_polynomial_temp.iter() {
+        let mut found = false;
+        for (c,d) in new_polynomial.iter_mut() {
+            if d == b {
+                let temp = lookup(reverse_lookup(*a) ^ reverse_lookup(*c));
+                *c = temp;
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            new_polynomial.push((*a,*b));
+        }
+    }
+
+
+
+
+    recursive_generator(n-1, new_polynomial, a+1)
+
+    
+}
+
+
+
+fn part0(n: u32, generator: &Vec<(u32,u32)>, data_polynomial: &Vec<(u32,u32)>) -> Vec<u32> {
+    let mut polynomial: Vec<(u32,u32)> = Vec::new();
+    for (a,b) in data_polynomial.iter() {
+        polynomial.push((*a,(*b)+n));
+    }
+    let mut generator_polynomial: Vec<(u32,u32)> = Vec::new();
+    let diff = polynomial.get(0).unwrap().1 - generator.get(0).unwrap().1;
+
+    for (a,b) in generator.iter() {
+        generator_polynomial.push((*a,(*b)+diff));
+    }
+
+    
+
+    partn(&polynomial, &generator_polynomial, data_polynomial.len() as u32)
+    
+    
+}
+
+fn partn(polynomial: &Vec<(u32,u32)>, generator: &Vec<(u32,u32)>, n: u32) -> Vec<u32> {
+    if n == 0 {
+        let mut result: Vec<u32> = Vec::new();
+        for (a,_) in polynomial.iter() {
+            result.push(*a);
+        }
+        return result;
+    }
+
+    // step a
+    let lookup = lookup(polynomial.get(0).unwrap().0);
+    let mut temp: Vec::<(u32,u32)> = Vec::new();
+    for (a,b) in generator.iter() {
+        temp.push((((*a) + lookup) % 255, *b));
+    }
+
+    // convert to polynomial
+    let mut generator_polynomial: Vec<(u32,u32)> = Vec::new();
+    for (a,b) in temp.iter() {
+        let new_a = reverse_lookup(*a);
+        generator_polynomial.push((new_a, *b));
+    }
+
+
+    // step b
+    let mut new_poly_temp: Vec<(u32,u32)> = Vec::new();
+    for i in 0..max(polynomial.len(), generator_polynomial.len()) {
+        let mut poly: &(u32, u32) = &(0,polynomial.get(0).unwrap().1 - i as u32);
+        // polynomial.get(i as usize).unwrap();
+        if polynomial.len() > i as usize {
+            poly = polynomial.get(i as usize).unwrap();
+        }
+        
+        let mut gen = 0;
+
+        // generator_polynomial.get(i as usize).unwrap().0;
+        if generator_polynomial.len() > i as usize {
+            gen = generator_polynomial.get(i as usize).unwrap().0;
+        }
+
+        new_poly_temp.push((poly.0 ^ gen, poly.1));
+
+    }
+
+
+    // remove 0s
+    let mut new_poly: Vec<(u32,u32)> = Vec::new();
+    for (a,b) in new_poly_temp.iter() {
+        if *a != 0 {
+            new_poly.push((*a,*b));
+        }
+    }
+
+    // recursive
+    partn(&new_poly , generator, n-1)
+
+    
+}
+
+fn max(a: usize, b: usize) -> usize {
+    if a > b {
+        return a;
+    }
+    b
+}
+
+
+fn lookup(a: u32) -> u32 {
+
+    let log_table = generate_gf_tables().1;
+
+    log_table[a as usize] as u32
+    
+}
+
+
+fn reverse_lookup(a: u32) -> u32 {
+
+    let antilog_table = generate_gf_tables().0;
+
+    antilog_table[a as usize] as u32
+    
+}
+
+
+fn generate_gf_tables() -> ([u8; 256], [u8; 256]) {
+    let primitive_polynomial: u16 = 285;
+    let mut antilog_table = [0u8; 256];
+    let mut log_table = [0u8; 256];
+
+    let mut value: u16 = 1;
+
+    for i in 0..255 {
+        antilog_table[i] = value as u8;
+        log_table[value as usize] = i as u8;
+
+        value <<= 1;
+        if value & 0x100 != 0 {
+            value ^= primitive_polynomial;
+        }
+    }
+    antilog_table[255] = antilog_table[0];
+    (antilog_table, log_table)
+}
 
 // [[[blocksg1, amountg1, blocksg2, amountg2], ...], ...]
 const BLOCK_LOOKUP: [[[u32; 4]; 4]; 40] = [
@@ -167,4 +361,40 @@ fn split_into_blocks(mut combined_data: Vec<bool>, version: u32, error_correctio
 
     (blocks_group1, blocks_group2)
 }
-    
+
+
+const EC_CODEWORDS: [[usize; 4]; 40] = [
+    // Version 1-10
+    [7, 10, 13, 17], [10, 16, 22, 28], [15, 26, 36, 44], [20, 36, 52, 64], 
+    [26, 48, 72, 88], [36, 64, 96, 112], [40, 72, 108, 130], [48, 88, 132, 156], 
+    [60, 110, 160, 192], [72, 130, 192, 224],
+
+    // Version 11-20
+    [80, 150, 224, 264], [96, 176, 260, 308], [104, 198, 288, 352], [120, 216, 320, 384], 
+    [132, 240, 360, 432], [144, 280, 408, 480], [168, 308, 448, 532], [180, 338, 504, 588], 
+    [196, 364, 546, 650], [224, 416, 600, 700],
+
+    // Version 21-30
+    [224, 442, 644, 750], [252, 476, 690, 816], [270, 504, 750, 900], [300, 560, 810, 960], 
+    [312, 588, 870, 1050], [336, 644, 952, 1110], [360, 700, 1020, 1200], [390, 728, 1050, 1260], 
+    [420, 784, 1140, 1350], [450, 812, 1200, 1440],
+
+    // Version 31-40
+    [480, 868, 1290, 1530], [510, 924, 1350, 1620], [540, 980, 1440, 1710], [570, 1036, 1530, 1800], 
+    [570, 1064, 1590, 1890], [600, 1120, 1680, 1980], [630, 1204, 1770, 2100], [660, 1260, 1860, 2220], 
+    [720, 1316, 1950, 2310], [750, 1372, 2040, 2430]
+];
+
+fn ec_codewords(version: u32, error_correction: &str) -> u32 {
+    let correction_level = match error_correction {
+        "L" => 0,
+        "M" => 1,
+        "Q" => 2,
+        "H" => 3,
+        _ => 0,
+    };
+
+    EC_CODEWORDS[version as usize - 1][correction_level] as u32
+}
+
+

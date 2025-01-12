@@ -2,8 +2,8 @@ mod encode;
 mod correction;
 
 fn main() {
-    let version = 5;
-    let error_correction = "Q";
+    let version = 1;
+    let error_correction = "M";
     let mode = "alphanumeric";
     let text = "HELLO WORLD";
     
