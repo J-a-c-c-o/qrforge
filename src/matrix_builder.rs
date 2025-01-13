@@ -17,9 +17,9 @@ pub fn build_QR_matrix(version: u32, data: Vec<bool>) -> Vec<Vec<Option<bool>>> 
     for i in 0..dimension as usize {
         for j in 0..dimension as usize {
             if matrix[i][j] == None {
-                print!(" ");
+                print!("⬜");
             } else {
-                print!("{}", if matrix[i][j].unwrap() { "X" } else { " " });
+                print!("{}", if matrix[i][j].unwrap() { "🟩" } else { "⬜" });
             }
         }
         println!();
