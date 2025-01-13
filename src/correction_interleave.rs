@@ -4,6 +4,8 @@ pub fn correction_interleave(version: u32, error_correction: &str, combined_data
 
     let ec_codewords = ec_codewords(version, error_correction);
 
+    
+
     let mut ec_blocks: Vec<Vec<Vec<bool>>>= Vec::new();
 
     for i in 0..blocks.len() {
@@ -68,15 +70,19 @@ fn interleave_blocks(blocks: &Vec<Vec<Vec<bool>>>) -> Vec<Vec<bool>> {
 
 fn build_polynomial(data: Vec<Vec<bool>>) -> Vec<(u32,u32)> {
     let mut polynomial: Vec<(u32,u32)> = Vec::new();
+    let size = data.len() as u32 - 1;
     for i in 0..data.len() {
         let mut value = 0;
         for j in 0..data[i].len() {
             if data[i][j] {
                 value += 2u32.pow(7-j as u32);
             }
+
         }
-        polynomial.push((value, 15-i as u32));
+        polynomial.push((value, size-i as u32));
     }
+
+
     polynomial
 }
 
@@ -87,6 +93,7 @@ fn generate_generator_polynomial(ec_codewords: u32) -> Vec<(u32,u32)> {
     let mut generator = recursive_generator((ec_codewords-1) as usize, vec![(0,1), (0,0)], 1);
     
     generator.sort_by(|a, b| b.1.cmp(&a.1));
+
 
 
     generator
@@ -148,8 +155,6 @@ fn part0(n: u32, generator: &Vec<(u32,u32)>, data_polynomial: &Vec<(u32,u32)>) -
         generator_polynomial.push((*a,(*b)+diff));
     }
 
-    
-
     partn(&polynomial, &generator_polynomial, data_polynomial.len() as u32)
     
     
@@ -180,7 +185,7 @@ fn partn(polynomial: &Vec<(u32,u32)>, generator: &Vec<(u32,u32)>, n: u32) -> Vec
 
 
     // step b
-    let mut new_poly_temp: Vec<(u32,u32)> = Vec::new();
+    let mut new_poly: Vec<(u32,u32)> = Vec::new();
     for i in 0..max(polynomial.len(), generator_polynomial.len()) {
         let mut poly: &(u32, u32) = &(0,polynomial.get(0).unwrap().1 - i as u32);
         // polynomial.get(i as usize).unwrap();
@@ -195,18 +200,13 @@ fn partn(polynomial: &Vec<(u32,u32)>, generator: &Vec<(u32,u32)>, n: u32) -> Vec
             gen = generator_polynomial.get(i as usize).unwrap().0;
         }
 
-        new_poly_temp.push((poly.0 ^ gen, poly.1));
+        new_poly.push((poly.0 ^ gen, poly.1));
 
     }
 
 
-    // remove 0s
-    let mut new_poly: Vec<(u32,u32)> = Vec::new();
-    for (a,b) in new_poly_temp.iter() {
-        if *a != 0 {
-            new_poly.push((*a,*b));
-        }
-    }
+    // remove 0s leading
+    new_poly.remove(0);
 
     // recursive
     partn(&new_poly , generator, n-1)

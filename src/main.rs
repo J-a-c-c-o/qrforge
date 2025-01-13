@@ -1,8 +1,10 @@
 mod encode;
 mod correction_interleave;
+mod matrix_builder;
+
 
 fn main() {
-    let version = 1;
+    let version = 3;
     let error_correction = "M";
     let mode = "alphanumeric";
     let text = "HELLO WORLD";
@@ -24,6 +26,9 @@ fn main() {
             print!("0");
         }
     }
+
+
+    let matrix = matrix_builder::build_QR_matrix(version, result);
 
 
 
