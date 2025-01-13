@@ -4,8 +4,8 @@ mod matrix_builder;
 
 
 fn main() {
-    let version = 3;
-    let error_correction = "Q";
+    let version = 6;
+    let error_correction = "H";
     let mode = "alphanumeric";
     let text = "HELLO WORLD";
     
