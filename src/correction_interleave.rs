@@ -3,7 +3,6 @@ pub fn correction_interleave(version: u32, error_correction: &str, combined_data
     let blocks = split_into_blocks(combined_data, version, error_correction);
 
     let ec_codewords = ec_codewords(version, error_correction);
-
     
 
     let mut ec_blocks: Vec<Vec<Vec<bool>>>= Vec::new();
@@ -12,6 +11,7 @@ pub fn correction_interleave(version: u32, error_correction: &str, combined_data
         let polynomial = build_polynomial(blocks.get(i).unwrap().clone());
         let generator = generate_generator_polynomial(ec_codewords);
         let result = part0(ec_codewords, &generator, &polynomial);
+
         let mut ec_block: Vec<Vec<bool>> = Vec::new();
         for j in 0..result.len() {
             let mut data: Vec<bool> = Vec::new();

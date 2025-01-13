@@ -4,14 +4,14 @@ mod matrix_builder;
 
 
 fn main() {
-    let version = 6;
+    let version = 13;
     let error_correction = "H";
     let mode = "alphanumeric";
     let text = "HELLO WORLD";
     
     let combined_data = encode::encode(version, error_correction, mode, text);
-    let result: Vec<bool> = correction_interleave::correction_interleave(version, error_correction, combined_data.clone());
 
+    let result: Vec<bool> = correction_interleave::correction_interleave(version, error_correction, combined_data.clone());
 
 
     let matrix = matrix_builder::build_qr_matrix(version, error_correction, result);
@@ -26,7 +26,8 @@ fn pretty_print(matrix: &Vec<Vec<Option<bool>>>) {
     for i in 0..dimension as usize {
         for j in 0..dimension as usize {
             if matrix[i][j] == None {
-                print!("⬛");
+                //make it green
+                print!("🟩");
             } else {
                 print!("{}", if matrix[i][j].unwrap() { "⬛" } else { "⬜" });
             }

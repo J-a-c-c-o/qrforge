@@ -237,9 +237,6 @@ const DATA_CODEWORDS: [[u32; 4]; 40] = [
 
 
 fn lookup_data_codewords(version: u32, error_correction: &str) -> u32 {
-    // Data codewords table (first 20 versions are provided; extend for all 40)
-    
-
     // Error correction index mapping
     let ec_index = match error_correction {
         "L" => 0,

@@ -28,7 +28,6 @@ pub fn build_qr_matrix(version: u32, error_correction: &str, data: Vec<bool>) ->
     matrix
 }
 
-
 fn add_finder_patterns(matrix: &mut Vec<Vec<Option<bool>>>) {
     let finder_pattern = vec![
         vec![true, true, true, true, true, true, true],
@@ -111,17 +110,15 @@ fn add_dark_module(matrix: &mut Vec<Vec<Option<bool>>>, version: u32) {
 }
 
 fn add_reseverd_area(matrix: &mut Vec<Vec<Option<bool>>>, version: u32) {
-
-    if version < 7 {
-        add_reserverd_area_v1_to_v6(matrix);
-    } else {
+    add_reserverd_area(matrix);
+    if version >= 7 {
         add_reserverd_area_v7_to_v40(matrix);
     }
     
 }
 
 
-fn add_reserverd_area_v1_to_v6(matrix: &mut Vec<Vec<Option<bool>>>) {
+fn add_reserverd_area(matrix: &mut Vec<Vec<Option<bool>>>) {
     let dimension = matrix.len();
 
     // top left down
@@ -512,47 +509,47 @@ fn apply_format_version_information(matrix: &mut Vec<Vec<Option<bool>>>, version
         }
 
         
-    } else {
-        let format_information_string = get_format_information(error_correction, mask);
-
-        // top left
-        let mut format_information_index = 0;
-
-        for i in 0..9 {
-            if i != 6 {
-                matrix[8][i] = Some(format_information_string[format_information_index]);
-                format_information_index += 1;
-            }
-        }
-
-        for i in 0..8 {
-            if (7 - i) != 6 {
-                matrix[7-i][8] = Some(format_information_string[format_information_index]);
-                format_information_index += 1;
-            }
-        }
-
-        // right bottom
-        format_information_index = 0;
-
-        for i in 0..7 {
-            matrix[dimension - 1 - i][8] = Some(format_information_string[format_information_index]);
-            format_information_index += 1;
-        }
-
-        for i in 0..8 {
-            matrix[8][dimension - 8 + i] = Some(format_information_string[format_information_index]);
-            format_information_index += 1;
-        }
-
-
     }
+    let format_information_string = get_format_information(error_correction, mask);
+
+    // top left
+    let mut format_information_index = 0;
+
+    for i in 0..9 {
+        if i != 6 {
+            matrix[8][i] = Some(format_information_string[format_information_index]);
+            format_information_index += 1;
+        }
+    }
+
+    for i in 0..8 {
+        if (7 - i) != 6 {
+            matrix[7-i][8] = Some(format_information_string[format_information_index]);
+            format_information_index += 1;
+        }
+    }
+
+    // right bottom
+    format_information_index = 0;
+
+    for i in 0..7 {
+        matrix[dimension - 1 - i][8] = Some(format_information_string[format_information_index]);
+        format_information_index += 1;
+    }
+
+    for i in 0..8 {
+        matrix[8][dimension - 8 + i] = Some(format_information_string[format_information_index]);
+        format_information_index += 1;
+    }
+
+
+
     
 }
 
 
 fn get_dimension(version: u32) -> u32 {
-    DIMENSION[version as usize - 1]
+    (version - 1) * 4 + 21
 }
 
 fn get_alignment_location(version: u32) -> Vec<(u32, u32)> {
@@ -570,13 +567,6 @@ fn get_alignment_location(version: u32) -> Vec<(u32, u32)> {
 
     alignment_pattern
 }
-
-const DIMENSION: [u32; 40] = [
-    21, 25, 29, 33, 37, 41, 45, 49, 53, 57,
-    61, 65, 69, 73, 77, 81, 85, 89, 93, 97,
-    101, 105, 109, 113, 117, 121, 125, 129, 133, 137,
-    141, 145, 149, 153, 157, 161, 165, 169, 173, 177
-];
 
 const ALIGNMENT_PATTERN: [&[u32]; 39] = [
     &[6, 18], &[6, 22], &[6, 26], &[6, 30], &[6, 34], &[6, 22, 38], &[6, 24, 42], &[6, 26, 46], &[6, 28, 50], &[6, 30, 54],
