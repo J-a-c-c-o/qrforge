@@ -65,16 +65,19 @@ fn add_seperators(matrix: &mut Vec<Vec<Option<bool>>>) {
     }
 }
 
+
+const ALIGNMENT_PATTERN: [[bool; 5]; 5] = [
+    [true, true, true, true, true],
+    [true, false, false, false, true],
+    [true, false, true, false, true],
+    [true, false, false, false, true],
+    [true, true, true, true, true],
+];
+
 fn add_alignment_patterns(matrix: &mut Vec<Vec<Option<bool>>>, version: u32) {
     let alignment_location = get_alignment_location(version);
 
-    let alignment_pattern = vec![
-        vec![true, true, true, true, true],
-        vec![true, false, false, false, true],
-        vec![true, false, true, false, true],
-        vec![true, false, false, false, true],
-        vec![true, true, true, true, true],
-    ];
+    
 
     for (x, y) in alignment_location { // center
 
@@ -84,7 +87,7 @@ fn add_alignment_patterns(matrix: &mut Vec<Vec<Option<bool>>>, version: u32) {
 
         for i in 0..5 {
             for j in 0..5 {
-                matrix[x as usize - 2 + i][y as usize - 2 + j] = Some(alignment_pattern[i][j]);
+                matrix[x as usize - 2 + i][y as usize - 2 + j] = Some(ALIGNMENT_PATTERN[i][j]);
             }
         }
     }
@@ -392,38 +395,28 @@ fn calculate_penalty_rule_2(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> 
     penalty
 }
 
+const PATTERN: [bool; 11] = [true, false, true, true, true, false, true, false, false, false, false];
+
 fn calculate_penalty_rule_3(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> i32 {
     let mut penalty = 0;
-
-    let pattern = vec![true, false, true, true, true, false, true, false, false, false, false];
 
     // Horizontal
     for i in 0..dimension {
         for j in 0..dimension - 10 {
             let mut match_count = 0;
+            let mut match_count_reversed = 0;
+
             for k in 0..11 {
-                if matrix[i as usize][j as usize + k] == Some(pattern[k]) {
+                if matrix[i as usize][j as usize + k] == Some(PATTERN[k]) {
                     match_count += 1;
+                }
+
+                if matrix[i as usize][j as usize + k] == Some(PATTERN[10 - k]) {
+                    match_count_reversed += 1;
                 }
             }
 
-            if match_count == 11 {
-                penalty += 40;
-            }
-        }
-    }
-
-    // Horizontal reversed
-    for i in 0..dimension {
-        for j in 0..dimension - 10 {
-            let mut match_count = 0;
-            for k in 0..11 {
-                if matrix[i as usize][j as usize + k] == Some(pattern[10 - k]) {
-                    match_count += 1;
-                }
-            }
-
-            if match_count == 11 {
+            if match_count == 11 || match_count_reversed == 11 {
                 penalty += 40;
             }
         }
@@ -433,33 +426,23 @@ fn calculate_penalty_rule_3(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> 
     for i in 0..dimension - 10 {
         for j in 0..dimension {
             let mut match_count = 0;
+            let mut match_count_reversed = 0;
             for k in 0..11 {
-                if matrix[i as usize + k][j as usize] == Some(pattern[k]) {
+                if matrix[i as usize + k][j as usize] == Some(PATTERN[k]) {
                     match_count += 1;
+                }
+
+                if matrix[i as usize + k][j as usize] == Some(PATTERN[10 - k]) {
+                    match_count_reversed += 1;
                 }
             }
 
-            if match_count == 11 {
+            if match_count == 11 || match_count_reversed == 11 {
                 penalty += 40;
             }
         }
     }
 
-    // Vertical reversed
-    for i in 0..dimension - 10 {
-        for j in 0..dimension {
-            let mut match_count = 0;
-            for k in 0..11 {
-                if matrix[i as usize + k][j as usize] == Some(pattern[10 - k]) {
-                    match_count += 1;
-                }
-            }
-
-            if match_count == 11 {
-                penalty += 40;
-            }
-        }
-    }
 
     penalty
 }
@@ -562,16 +545,16 @@ fn get_alignment_location(version: u32) -> Vec<(u32, u32)> {
         return alignment_pattern;
     }
 
-    for i in 0..ALIGNMENT_PATTERN[version as usize - 2].len() {
-        for j in 0..ALIGNMENT_PATTERN[version as usize - 2].len() {
-            alignment_pattern.push((ALIGNMENT_PATTERN[version as usize - 2][i], ALIGNMENT_PATTERN[version as usize - 2][j]));
+    for i in 0..ALIGNMENT_PATTERN_LOCATION[version as usize - 2].len() {
+        for j in 0..ALIGNMENT_PATTERN_LOCATION[version as usize - 2].len() {
+            alignment_pattern.push((ALIGNMENT_PATTERN_LOCATION[version as usize - 2][i], ALIGNMENT_PATTERN_LOCATION[version as usize - 2][j]));
         }
     }
 
     alignment_pattern
 }
 
-const ALIGNMENT_PATTERN: [&[u32]; 39] = [
+const ALIGNMENT_PATTERN_LOCATION: [&[u32]; 39] = [
     &[6, 18], &[6, 22], &[6, 26], &[6, 30], &[6, 34], &[6, 22, 38], &[6, 24, 42], &[6, 26, 46], &[6, 28, 50], &[6, 30, 54],
     &[6, 32, 58], &[6, 34, 62], &[6, 26, 46, 66], &[6, 26, 48, 70], &[6, 26, 50, 74], &[6, 30, 54, 78], &[6, 30, 56, 82], &[6, 30, 58, 86], &[6, 34, 62, 90], &[6, 28, 50, 72, 94],
     &[6, 26, 50, 74, 98], &[6, 30, 54, 78, 102], &[6, 28, 54, 80, 106], &[6, 32, 58, 84, 110], &[6, 30, 58, 86, 114], &[6, 34, 62, 90, 118], &[6, 26, 50, 74, 98, 122], &[6, 30, 54, 78, 102, 126], &[6, 26, 52, 78, 104, 130], &[6, 30, 56, 82, 108, 134],
