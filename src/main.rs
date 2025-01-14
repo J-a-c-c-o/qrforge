@@ -5,8 +5,8 @@ mod interleave;
 
 
 fn main() {
-    let version = 25;
-    let error_correction = "Q";
+    let version = 40;
+    let error_correction = "H";
     let mode = "alphanumeric";
     let text = "HELLO WORLD";
     
