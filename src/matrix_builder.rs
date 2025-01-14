@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 pub fn build_qr_matrix(version: u32, error_correction: &str, data: Vec<bool>) -> Vec<Vec<Option<bool>>> {
     let dimension = get_dimension(version);
 
@@ -173,9 +175,9 @@ fn add_reserverd_area_v7_to_v40(matrix: &mut Vec<Vec<Option<bool>>>) {
     }
 }
 
-fn add_data(matrix: &mut Vec<Vec<Option<bool>>>, data: Vec<bool>) -> Vec<(i32, i32)> {
+fn add_data(matrix: &mut Vec<Vec<Option<bool>>>, data: Vec<bool>) -> HashSet<(i32, i32)> {
     let dimension = matrix.len() as i32;
-    let mut visited = Vec::new();
+    let mut visited = HashSet::new();
 
     // x = dimension - 1, y = dimension - 1
     let mut current: (i32, i32) = (dimension - 1, dimension - 1);
@@ -191,14 +193,14 @@ fn add_data(matrix: &mut Vec<Vec<Option<bool>>>, data: Vec<bool>) -> Vec<(i32, i
             matrix[current.1 as usize][current.0 as usize] = Some(data[data_index]);
             data_index += 1;
 
-            visited.push((current.0, current.1));
+            visited.insert((current.0, current.1));
         }
 
         if matrix[current.1 as usize][current.0 as usize - 1] == None {
             matrix[current.1 as usize][current.0 as usize - 1] = Some(data[data_index]);
             data_index += 1;
 
-            visited.push((current.0 - 1, current.1));
+            visited.insert((current.0 - 1, current.1));
         }
 
         if direction {
@@ -225,7 +227,7 @@ fn add_data(matrix: &mut Vec<Vec<Option<bool>>>, data: Vec<bool>) -> Vec<(i32, i
 
 
 
-fn apply_mask(matrix: &mut Vec<Vec<Option<bool>>>, data_coordinates: Vec<(i32, i32)>) -> u32 {
+fn apply_mask(matrix: &mut Vec<Vec<Option<bool>>>, data_coordinates: HashSet<(i32, i32)>) -> u32 {
     let mut mask = 0;
     let mut min_penalty = 1 << 30;
 
@@ -250,10 +252,11 @@ fn apply_mask(matrix: &mut Vec<Vec<Option<bool>>>, data_coordinates: Vec<(i32, i
         }
     }
 
+
     mask
 }
 
-fn apply_mask_pattern(matrix: &mut Vec<Vec<Option<bool>>>, mask: u32, data_coordinates: &Vec<(i32, i32)>) {
+fn apply_mask_pattern(matrix: &mut Vec<Vec<Option<bool>>>, mask: u32, data_coordinates: &HashSet<(i32, i32)>) {
     let dimension = matrix.len() as i32;
 
     for i in 0..dimension {

@@ -1,7 +1,14 @@
+#![feature(test)]
+extern crate test;
+
 mod encode;
 mod correction;
 mod matrix_builder;
 mod interleave;
+
+
+#[cfg(test)]
+mod tests;
 
 
 fn main() {
