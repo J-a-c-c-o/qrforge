@@ -397,56 +397,54 @@ fn calculate_penalty_rule_2(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> 
 
 const PATTERN: [bool; 11] = [true, false, true, true, true, false, true, false, false, false, false];
 
+fn check_pattern(slice: &[Option<bool>]) -> bool {
+    for (i, &val) in slice.iter().enumerate() {
+        if val != Some(PATTERN[i]) {
+            return false;
+        }
+    }
+    true
+}
+
+fn check_reversed_pattern(slice: &[Option<bool>]) -> bool {
+    for (i, &val) in slice.iter().enumerate() {
+        if val != Some(PATTERN[10 - i]) {
+            return false;
+        }
+    }
+    true
+}
+
 fn calculate_penalty_rule_3(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> i32 {
     let mut penalty = 0;
+    let dim = dimension as usize;
 
-    // Horizontal
-    for i in 0..dimension {
-        for j in 0..dimension - 10 {
-            let mut match_count = 0;
-            let mut match_count_reversed = 0;
-
-            for k in 0..11 {
-                if matrix[i as usize][j as usize + k] == Some(PATTERN[k]) {
-                    match_count += 1;
-                }
-
-                if matrix[i as usize][j as usize + k] == Some(PATTERN[10 - k]) {
-                    match_count_reversed += 1;
-                }
-            }
-
-            if match_count == 11 || match_count_reversed == 11 {
+    // Horizontal check
+    for i in 0..dim {
+        for j in 0..(dim - 10) {
+            let row_slice = &matrix[i][j..j+11];
+            if check_pattern(row_slice) || check_reversed_pattern(row_slice) {
                 penalty += 40;
             }
         }
     }
 
-    // Vertical
-    for i in 0..dimension - 10 {
-        for j in 0..dimension {
-            let mut match_count = 0;
-            let mut match_count_reversed = 0;
+    // Vertical check
+    for j in 0..dim {
+        for i in 0..(dim - 10) {
+            // Collect the 11 vertical items; store them in a small local array
+            let mut column_slice = [None; 11];
             for k in 0..11 {
-                if matrix[i as usize + k][j as usize] == Some(PATTERN[k]) {
-                    match_count += 1;
-                }
-
-                if matrix[i as usize + k][j as usize] == Some(PATTERN[10 - k]) {
-                    match_count_reversed += 1;
-                }
+                column_slice[k] = matrix[i + k][j];
             }
-
-            if match_count == 11 || match_count_reversed == 11 {
+            if check_pattern(&column_slice) || check_reversed_pattern(&column_slice) {
                 penalty += 40;
             }
         }
     }
-
 
     penalty
 }
-
 fn calculate_penalty_rule_4(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> i32 {
     let mut dark_count = 0;
 
