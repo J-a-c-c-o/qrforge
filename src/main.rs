@@ -1,17 +1,20 @@
 mod encode;
-mod correction_interleave;
+mod correction;
 mod matrix_builder;
+mod interleave;
 
 
 fn main() {
-    let version = 13;
-    let error_correction = "H";
+    let version = 25;
+    let error_correction = "Q";
     let mode = "alphanumeric";
     let text = "HELLO WORLD";
     
     let combined_data = encode::encode(version, error_correction, mode, text);
 
-    let result: Vec<bool> = correction_interleave::correction_interleave(version, error_correction, combined_data.clone());
+    let (blocks, ec_blocks) = correction::correction_interleave(version, error_correction, combined_data.clone());
+
+    let result = interleave::interleave(blocks, ec_blocks, version);
 
 
     let matrix = matrix_builder::build_qr_matrix(version, error_correction, result);

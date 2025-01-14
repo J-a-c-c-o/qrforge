@@ -1,4 +1,4 @@
-pub fn correction_interleave(version: u32, error_correction: &str, combined_data: Vec<bool>) -> Vec<bool> {
+pub fn correction_interleave(version: u32, error_correction: &str, combined_data: Vec<bool>) -> (Vec<Vec<Vec<bool>>>, Vec<Vec<Vec<bool>>>) {
 
     let blocks = split_into_blocks(combined_data, version, error_correction);
 
@@ -7,10 +7,12 @@ pub fn correction_interleave(version: u32, error_correction: &str, combined_data
 
     let mut ec_blocks: Vec<Vec<Vec<bool>>>= Vec::new();
 
+    let (antilog_table, log_table) = generate_gf_tables();
+
     for i in 0..blocks.len() {
         let polynomial = build_polynomial(blocks.get(i).unwrap().clone());
-        let generator = generate_generator_polynomial(ec_codewords);
-        let result = part0(ec_codewords, &generator, &polynomial);
+        let generator = generate_generator_polynomial(ec_codewords, &log_table, &antilog_table);
+        let result = part0(ec_codewords, &generator, &polynomial, &log_table, &antilog_table);
 
         let mut ec_block: Vec<Vec<bool>> = Vec::new();
         for j in 0..result.len() {
@@ -26,46 +28,8 @@ pub fn correction_interleave(version: u32, error_correction: &str, combined_data
 
 
 
-    let interleave_ec = interleave_blocks(&ec_blocks);
-    let interleave_data = interleave_blocks(&blocks);
+    (blocks, ec_blocks)
 
-    let mut result: Vec<bool> = Vec::new();
-    for block in interleave_data.iter() {
-        result.extend_from_slice(block);
-    }
-
-    for block in interleave_ec.iter() {
-        result.extend_from_slice(block);
-    }
-    
-    // fill remaining bits
-    let remainder_bits = get_remainder_bits(version);
-
-    result.extend_from_slice(&remainder_bits);
-
-    result
-
-}
-
-
-fn interleave_blocks(blocks: &Vec<Vec<Vec<bool>>>) -> Vec<Vec<bool>> {
-    let mut result: Vec<Vec<bool>> = Vec::new();
-    let mut max_length = 0;
-    for block in blocks.iter() {
-        if block.len() > max_length {
-            max_length = block.len();
-        }
-    }
-
-    for i in 0..max_length {
-        for block in blocks.iter() {
-            if block.len() > i {
-                result.push(block.get(i).unwrap().clone());
-            }
-        }
-    }
-
-    result
 }
 
 fn build_polynomial(data: Vec<Vec<bool>>) -> Vec<(u32,u32)> {
@@ -88,20 +52,18 @@ fn build_polynomial(data: Vec<Vec<bool>>) -> Vec<(u32,u32)> {
 
 
 
-fn generate_generator_polynomial(ec_codewords: u32) -> Vec<(u32,u32)> {
+fn generate_generator_polynomial(ec_codewords: u32, log_table: &[u8; 256], antilog_table: &[u8; 256]) -> Vec<(u32,u32)> {
 
-    let mut generator = recursive_generator((ec_codewords-1) as usize, vec![(0,1), (0,0)], 1);
+    let mut generator = recursive_generator((ec_codewords-1) as usize, vec![(0,1), (0,0)], 1, log_table, antilog_table);
     
     generator.sort_by(|a, b| b.1.cmp(&a.1));
-
-
 
     generator
     
 }
 
 
-fn recursive_generator(n: usize, polynomial: Vec<(u32,u32)>, a: u32) -> Vec<(u32,u32)> {
+fn recursive_generator(n: usize, polynomial: Vec<(u32,u32)>, a: u32, log_table: &[u8; 256], antilog_table: &[u8; 256]) -> Vec<(u32,u32)> {
     if n == 0 {
         return polynomial;
     }
@@ -122,7 +84,7 @@ fn recursive_generator(n: usize, polynomial: Vec<(u32,u32)>, a: u32) -> Vec<(u32
         let mut found = false;
         for (c,d) in new_polynomial.iter_mut() {
             if d == b {
-                let temp = lookup(reverse_lookup(*a) ^ reverse_lookup(*c));
+                let temp = lookup(reverse_lookup(*a,antilog_table) ^ reverse_lookup(*c,antilog_table), log_table);
                 *c = temp;
                 found = true;
                 break;
@@ -136,14 +98,14 @@ fn recursive_generator(n: usize, polynomial: Vec<(u32,u32)>, a: u32) -> Vec<(u32
 
 
 
-    recursive_generator(n-1, new_polynomial, a+1)
+    recursive_generator(n-1, new_polynomial, a+1, log_table, antilog_table)
 
     
 }
 
 
 
-fn part0(n: u32, generator: &Vec<(u32,u32)>, data_polynomial: &Vec<(u32,u32)>) -> Vec<u32> {
+fn part0(n: u32, generator: &Vec<(u32,u32)>, data_polynomial: &Vec<(u32,u32)>, log_table: &[u8; 256], antilog_table: &[u8; 256]) -> Vec<u32> {
     let mut polynomial: Vec<(u32,u32)> = Vec::new();
     for (a,b) in data_polynomial.iter() {
         polynomial.push((*a,(*b)+n));
@@ -155,12 +117,12 @@ fn part0(n: u32, generator: &Vec<(u32,u32)>, data_polynomial: &Vec<(u32,u32)>) -
         generator_polynomial.push((*a,(*b)+diff));
     }
 
-    partn(&polynomial, &generator_polynomial, data_polynomial.len() as u32)
+    partn(&polynomial, &generator_polynomial, data_polynomial.len() as u32, log_table, antilog_table)
     
     
 }
 
-fn partn(polynomial: &Vec<(u32,u32)>, generator: &Vec<(u32,u32)>, n: u32) -> Vec<u32> {
+fn partn(polynomial: &Vec<(u32,u32)>, generator: &Vec<(u32,u32)>, n: u32, log_table: &[u8; 256], antilog_table: &[u8; 256]) -> Vec<u32> {
     if n == 0 {
         let mut result: Vec<u32> = Vec::new();
         for (a,_) in polynomial.iter() {
@@ -170,7 +132,7 @@ fn partn(polynomial: &Vec<(u32,u32)>, generator: &Vec<(u32,u32)>, n: u32) -> Vec
     }
 
     // step a
-    let lookup = lookup(polynomial.get(0).unwrap().0);
+    let lookup = lookup(polynomial.get(0).unwrap().0, log_table);
     let mut temp: Vec::<(u32,u32)> = Vec::new();
     for (a,b) in generator.iter() {
         temp.push((((*a) + lookup) % 255, *b));
@@ -179,7 +141,7 @@ fn partn(polynomial: &Vec<(u32,u32)>, generator: &Vec<(u32,u32)>, n: u32) -> Vec
     // convert to polynomial
     let mut generator_polynomial: Vec<(u32,u32)> = Vec::new();
     for (a,b) in temp.iter() {
-        let new_a = reverse_lookup(*a);
+        let new_a = reverse_lookup(*a, antilog_table);
         generator_polynomial.push((new_a, *b));
     }
 
@@ -209,7 +171,7 @@ fn partn(polynomial: &Vec<(u32,u32)>, generator: &Vec<(u32,u32)>, n: u32) -> Vec
     new_poly.remove(0);
 
     // recursive
-    partn(&new_poly , generator, n-1)
+    partn(&new_poly , generator, n-1, log_table, antilog_table)
 
     
 }
@@ -222,21 +184,17 @@ fn max(a: usize, b: usize) -> usize {
 }
 
 
-fn lookup(a: u32) -> u32 {
+fn lookup(a: u32, log_table: &[u8; 256]) -> u32 {
 
-    let log_table = generate_gf_tables().1;
+    
 
     log_table[a as usize] as u32
     
 }
 
 
-fn reverse_lookup(a: u32) -> u32 {
-
-    let antilog_table = generate_gf_tables().0;
-
+fn reverse_lookup(a: u32, antilog_table: &[u8; 256]) -> u32 {
     antilog_table[a as usize] as u32
-    
 }
 
 
@@ -324,16 +282,6 @@ fn ec_codewords(version: u32, error_correction: &str) -> u32 {
     };
 
     EC_CODEWORDS[version as usize - 1][correction_level] as u32
-}
-
-
-fn get_remainder_bits(version: u32) -> Vec<bool> {
-    let mut result: Vec<bool> = Vec::new();
-    let remaining = REMAINING_BITS[version as usize - 1];
-    for _ in 0..remaining {
-        result.push(false);
-    }
-    result
 }
 
 
@@ -443,5 +391,3 @@ const EC_CODEWORDS: [[usize; 4]; 40] = [
 ];
 
 
-const REMAINING_BITS: [u32; 40] = [
-    0,7,7,7,7,7,0,0,0,0,0,0,0,3,3,3,3,3,3,3,4,4,4,4,4,4,4,3,3,3,3,3,3,3,0,0,0,0,0,0];
