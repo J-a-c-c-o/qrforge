@@ -30,24 +30,27 @@ pub fn build_qr_matrix(version: u32, error_correction: &str, data: Vec<bool>) ->
     matrix
 }
 
+
+const FINDER_PATTERN: [[bool; 7]; 7] = [
+    [true, true, true, true, true, true, true],
+    [true, false, false, false, false, false, true],
+    [true, false, true, true, true, false, true],
+    [true, false, true, true, true, false, true],
+    [true, false, true, true, true, false, true],
+    [true, false, false, false, false, false, true],
+    [true, true, true, true, true, true, true],
+];
+
 fn add_finder_patterns(matrix: &mut Vec<Vec<Option<bool>>>) {
-    let finder_pattern = vec![
-        vec![true, true, true, true, true, true, true],
-        vec![true, false, false, false, false, false, true],
-        vec![true, false, true, true, true, false, true],
-        vec![true, false, true, true, true, false, true],
-        vec![true, false, true, true, true, false, true],
-        vec![true, false, false, false, false, false, true],
-        vec![true, true, true, true, true, true, true],
-    ];
+    
 
     let dimension = matrix.len();
 
     for i in 0..7 {
         for j in 0..7 {
-            matrix[i][j] = Some(finder_pattern[i][j]);
-            matrix[i][dimension - 1 - j] = Some(finder_pattern[i][j]);
-            matrix[dimension - 1 - i][j] = Some(finder_pattern[i][j]);
+            matrix[i][j] = Some(FINDER_PATTERN[i][j]);
+            matrix[i][dimension - 1 - j] = Some(FINDER_PATTERN[i][j]);
+            matrix[dimension - 1 - i][j] = Some(FINDER_PATTERN[i][j]);
         }
     }
 }

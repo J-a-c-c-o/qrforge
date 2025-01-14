@@ -11,7 +11,7 @@ use test::Bencher;
         
         let combined_data = encode::encode(version, error_correction, mode, text);
     
-        let (blocks, ec_blocks) = correction::correction_interleave(version, error_correction, combined_data.clone());
+        let (blocks, ec_blocks) = correction::correction(version, error_correction, combined_data.clone());
     
         let result = interleave::interleave(blocks, ec_blocks, version);
     

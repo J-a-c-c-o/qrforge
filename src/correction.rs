@@ -1,4 +1,4 @@
-pub fn correction_interleave(version: u32, error_correction: &str, combined_data: Vec<bool>) -> (Vec<Vec<Vec<bool>>>, Vec<Vec<Vec<bool>>>) {
+pub fn correction(version: u32, error_correction: &str, combined_data: Vec<bool>) -> (Vec<Vec<Vec<bool>>>, Vec<Vec<Vec<bool>>>) {
 
     let blocks = split_into_blocks(combined_data, version, error_correction);
 
@@ -62,18 +62,18 @@ fn generate_generator_polynomial(ec_codewords: u32, log_table: &[u8; 256], antil
     
 }
 
+const MULTIPLIER: [(u32,u32); 2] = [(0,1), (1,0)];
 
 fn recursive_generator(n: usize, polynomial: Vec<(u32,u32)>, a: u32, log_table: &[u8; 256], antilog_table: &[u8; 256]) -> Vec<(u32,u32)> {
     if n == 0 {
         return polynomial;
     }
 
-    let multiplier = vec![(0,1), (a,0)];
+    
     let mut new_polynomial_temp: Vec<(u32,u32)> = Vec::new();
-
     // multiply
     for (a,b) in polynomial.iter() {
-        for (c,d) in multiplier.iter() {
+        for (c,d) in MULTIPLIER.iter() {
             new_polynomial_temp.push(((a+c)%255, b+d));
         }
     }
