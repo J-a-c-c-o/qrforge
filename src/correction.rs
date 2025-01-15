@@ -52,56 +52,45 @@ fn build_polynomial(data: Vec<Vec<bool>>) -> Vec<(u32,u32)> {
 
 
 
-fn generate_generator_polynomial(ec_codewords: u32, log_table: &[u8; 256], antilog_table: &[u8; 256]) -> Vec<(u32,u32)> {
+fn generate_generator_polynomial(ec_codewords: u32,log_table: &[u8; 256],antilog_table: &[u8; 256]) -> Vec<(u32,u32)> {
+    // Start with X^1
+    let mut polynomial = vec![(0, 1)]; // (coefficient α^0, exponent 1)
 
-    let mut generator = recursive_generator((ec_codewords-1) as usize, vec![(0,1), (0,0)], 1, log_table, antilog_table);
-    
-    generator.sort_by(|a, b| b.1.cmp(&a.1));
+    // Multiply by (X + α^i) ec_codewords times
+    for i in 0..ec_codewords {
+        polynomial = multiply_polynomial(&polynomial, i, log_table, antilog_table);
+    }
 
-    generator
-    
+    polynomial.sort_by(|a, b| b.1.cmp(&a.1));
+    polynomial
 }
 
-
-fn recursive_generator(n: usize, polynomial: Vec<(u32,u32)>, a: u32, log_table: &[u8; 256], antilog_table: &[u8; 256]) -> Vec<(u32,u32)> {
-    if n == 0 {
-        return polynomial;
+fn multiply_polynomial(polynomial: &[(u32, u32)],alpha_power: u32,log_table: &[u8; 256],antilog_table: &[u8; 256]) -> Vec<(u32, u32)> {
+    // Collect expanded terms
+    let mut result_temp = Vec::with_capacity(polynomial.len() * 2);
+    for &(coeff, exp) in polynomial {
+        // Multiply with (0, 1) => shift exponent by 1
+        result_temp.push(((coeff + 0) % 255, exp + 1));
+        // Multiply with (alpha^alpha_power, 0)
+        result_temp.push(((coeff + alpha_power) % 255, exp));
     }
 
-    let multiplier = vec![(0,1), (a,0)];
-    let mut new_polynomial_temp: Vec<(u32,u32)> = Vec::new();
-
-    // multiply
-    for (a,b) in polynomial.iter() {
-        for (c,d) in multiplier.iter() {
-            new_polynomial_temp.push(((a+c)%255, b+d));
+    // Combine like exponents
+    let mut result = Vec::new();
+    for (val, e) in result_temp {
+        if let Some(existing) = result.iter_mut().find(|(_, ex)| *ex == e) {
+            let tmp = lookup(
+                reverse_lookup(val, antilog_table) ^ reverse_lookup(existing.0, antilog_table),
+                log_table
+            );
+            existing.0 = tmp;
+        } else {
+            result.push((val, e));
         }
     }
-
-    // combine
-    let mut new_polynomial: Vec<(u32,u32)> = Vec::new();
-    for (a,b) in new_polynomial_temp.iter() {
-        let mut found = false;
-        for (c,d) in new_polynomial.iter_mut() {
-            if d == b {
-                let temp = lookup(reverse_lookup(*a,antilog_table) ^ reverse_lookup(*c,antilog_table), log_table);
-                *c = temp;
-                found = true;
-                break;
-            }
-        }
-        if !found {
-            new_polynomial.push((*a,*b));
-        }
-    }
-
-
-
-
-    recursive_generator(n-1, new_polynomial, a+1, log_table, antilog_table)
-
-    
+    result
 }
+
 
 
 

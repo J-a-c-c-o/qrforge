@@ -1,100 +1,126 @@
 
 pub struct Matrix {
-    matrix: Vec<Option<bool>>,
+    matrix: Vec<bool>,
+    some_matrix: Vec<bool>,
     dimension: usize,
 }
 
 impl Matrix {
     fn new(dimension: usize) -> Self {
-        let matrix = vec![None; dimension * dimension];
-        Matrix {
-            matrix,
+        Self {
+            matrix: vec![false; dimension * dimension],
+            some_matrix: vec![false; dimension * dimension],
             dimension,
         }
     }
 
-    fn get(&self, x: usize, y: usize) -> Option<bool> {
+    fn get(&self, x: usize, y: usize) -> bool {
         self.matrix[y * self.dimension + x]
     }
 
     fn set(&mut self, x: usize, y: usize, value: bool) {
-        self.matrix[y * self.dimension + x] = Some(value);
+        self.matrix[y * self.dimension + x] = value;
+        self.some_matrix[y * self.dimension + x] = true;
     }
 
     fn is_empty(&self, x: usize, y: usize) -> bool {
-        !self.matrix[y * self.dimension + x].is_some()
+        !self.some_matrix[y * self.dimension + x]
     }
-
+    
     fn len(&self) -> usize {
         self.dimension
     }
 
     fn clone(&self) -> Matrix {
         let matrix = self.matrix.clone();
+        let some_matrix = self.some_matrix.clone();
         Matrix {
             matrix,
+            some_matrix,
             dimension: self.dimension,
         }
     }
 
 
     fn count_occurences(&self, pattern: &[bool; 11]) -> i32 {
-        let mut occurences = 0;
+        // maybe use bit manipulation
+        let mut count = 0;
         let dimension = self.len();
 
-        // Horizontal
+        // Horizontal use && to check if it contains the pattern
         for i in 0..dimension {
-            let mut count = 0;
             let mut current = 0;
+            let mut current_count = 0;
 
             for j in 0..dimension {
-                if self.get(j, i).unwrap() == pattern[current] {
-                    count += 1;
+                if self.get(j, i) == pattern[current] {
+                    current_count += 1;
+                    current += 1;
                 } else {
-                    count = 0;
+                    current = 0;
+                    current_count = 0;
                 }
 
-                if count == 11 {
-                    occurences += 1;
-                    count = 0;
+                if current_count == 11 {
+                    count += 1;
+                    current = 0;
+                    current_count = 0;
                 }
-
-                current = (current + 1) % 11;
             }
         }
 
         // Vertical
         for i in 0..dimension {
-            let mut count = 0;
             let mut current = 0;
+            let mut current_count = 0;
 
             for j in 0..dimension {
-                if self.get(i, j).unwrap() == pattern[current] {
-                    count += 1;
+                if self.get(i, j) == pattern[current] {
+                    current_count += 1;
+                    current += 1;
                 } else {
-                    count = 0;
+                    current = 0;
+                    current_count = 0;
                 }
 
-                if count == 11 {
-                    occurences += 1;
-                    count = 0;
+                if current_count == 11 {
+                    count += 1;
+                    current = 0;
+                    current_count = 0;
                 }
-
-                current = (current + 1) % 11;
             }
         }
 
-        occurences
+        count
+        
+        
+    }
+
+    fn count_boxes(&self) -> i32 {
+        let dimension = self.len();
+        let mut count = 0;
+
+        for i in 0..dimension - 1 {
+            for j in 0..dimension - 1 {
+                if self.get(j, i) == self.get(j + 1, i) && self.get(j, i) == self.get(j, i + 1) && self.get(j, i) == self.get(j + 1, i + 1) {
+                    count += 1;
+                }
+            }
+        }
+
+        count
+        
     }
 
     pub fn pretty_print(&self) {
         for i in 0..self.dimension {
             for j in 0..self.dimension {
-                if self.matrix[i * self.dimension + j] == None {
+                if self.is_empty(j, i) {
                     //make it green
                     print!("🟩");
                 } else {
-                    print!("{}", if self.matrix[i * self.dimension + j].unwrap() { "⬛" } else { "⬜" });
+                    // print!("{}", if self.matrix[i * self.dimension + j] { "⬛" } else { "⬜" });
+                    print!("{}", if self.get(j, i) { "⬛" } else { "⬜" });
                 }
             }
             println!();
@@ -189,7 +215,7 @@ fn add_alignment_patterns(matrix: &mut Matrix, version: usize) {
 
     for (x, y) in alignment_location { // center
 
-        if !matrix.is_empty(x, y) {
+        if matrix.get(x, y) {
             continue;
         }
 
@@ -362,7 +388,7 @@ fn apply_mask(matrix: &mut Matrix, data_coordinates: Vec<(i32, i32)>) -> u32 {
 
     for i in 0..matrix.len() {
         for j in 0..matrix.len() {
-            matrix.set(j, i, temp.get(j, i).unwrap());
+            matrix.set(j, i, temp.get(j, i));
         }
     }
 
@@ -377,42 +403,42 @@ fn apply_mask_pattern(matrix: &mut Matrix, mask: u32, data_coordinates: &Vec<(i3
         match mask {
             0 => {
                 if (i + j) % 2 == 0 {
-                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                    matrix.set(j, i, !matrix.get(j, i));
                 }
             },
             1 => {
                 if i % 2 == 0 {
-                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                    matrix.set(j, i, !matrix.get(j, i));
                 }
             },
             2 => {
                 if j % 3 == 0 {
-                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                    matrix.set(j, i, !matrix.get(j, i));
                 }
             },
             3 => {
                 if (i + j) % 3 == 0 {
-                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                    matrix.set(j, i, !matrix.get(j, i));
                 }
             },
             4 => {
                 if (i / 2 + j / 3) % 2 == 0 {
-                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                    matrix.set(j, i, !matrix.get(j, i));
                 }
             },
             5 => {
                 if (i * j) % 2 + (i * j) % 3 == 0 {
-                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                    matrix.set(j, i, !matrix.get(j, i));
                 }
             },
             6 => {
                 if ((i * j) % 2 + (i * j) % 3) % 2 == 0 {
-                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                    matrix.set(j, i, !matrix.get(j, i));
                 }
             },
             7 => {
                 if (((i + j) % 2) + ((i * j) % 3)) % 2 == 0 {
-                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                    matrix.set(j, i, !matrix.get(j, i));
                 }
             },
             _ => {},
@@ -439,10 +465,10 @@ fn calculate_penalty_rule_1(matrix: &Matrix) -> i32 {
     // Horizontal
     for i in 0..dimension {
         let mut count = 1;
-        let mut current = matrix.get(i, 0).unwrap();
+        let mut current = matrix.get(i, 0);
 
         for j in 1..dimension {
-            if matrix.get(i, j).unwrap() == current {
+            if matrix.get(i, j) == current {
                 count += 1;
             } else {
                 if count >= 5 {
@@ -450,7 +476,7 @@ fn calculate_penalty_rule_1(matrix: &Matrix) -> i32 {
                 }
 
                 count = 1;
-                current = matrix.get(i, j).unwrap();
+                current = matrix.get(i, j);
             }
         }
 
@@ -462,10 +488,10 @@ fn calculate_penalty_rule_1(matrix: &Matrix) -> i32 {
     // Vertical
     for i in 0..dimension {
         let mut count = 1;
-        let mut current = matrix.get(0, i).unwrap();
+        let mut current = matrix.get(0, i);
 
         for j in 1..dimension {
-            if matrix.get(j, i).unwrap() == current {
+            if matrix.get(j, i) == current {
                 count += 1;
             } else {
                 if count >= 5 {
@@ -473,7 +499,7 @@ fn calculate_penalty_rule_1(matrix: &Matrix) -> i32 {
                 }
 
                 count = 1;
-                current = matrix.get(j, i).unwrap();
+                current = matrix.get(j, i);
             }
         }
 
@@ -487,25 +513,15 @@ fn calculate_penalty_rule_1(matrix: &Matrix) -> i32 {
 }
 
 fn calculate_penalty_rule_2(matrix: &Matrix) -> i32 {
-    let mut penalty = 0;
-    let dimension = matrix.len();
+    let boxes = matrix.count_boxes();
 
-    for i in 0..dimension - 1 {
-        for j in 0..dimension - 1 {
-            if matrix.get(j, i).unwrap() == matrix.get(j + 1, i).unwrap() &&
-               matrix.get(j, i).unwrap() == matrix.get(j, i + 1).unwrap() &&
-               matrix.get(j, i).unwrap() == matrix.get(j + 1, i + 1).unwrap() {
-                penalty += 3;
-            }
-        }
-    }
-
+    let penalty = boxes*3;
     penalty
 }
 
 const PATTERN: [bool; 11] = [true, false, true, true, true, false, true, false, false, false, false];
 
-const REVERSED_PATTERN: [bool; 11] = [false, false, false, false, false, true, false, true, true, true, false];
+const REVERSED_PATTERN: [bool; 11] = [false, false, false, false, true, false, true, true, true, false, true];
 
 fn calculate_penalty_rule_3(matrix: &Matrix) -> i32 {
     let penalty = (matrix.count_occurences(&PATTERN) + matrix.count_occurences(&REVERSED_PATTERN)) * 40;
@@ -519,7 +535,7 @@ fn calculate_penalty_rule_4(matrix: &Matrix) -> i32 {
 
     for i in 0..dimension {
         for j in 0..dimension {
-            if matrix.get(j, i).unwrap() {
+            if matrix.get(j, i) {
                 dark_count += 1;
             }
         }

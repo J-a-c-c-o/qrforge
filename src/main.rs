@@ -1,4 +1,5 @@
 #![feature(test)]
+
 extern crate test;
 
 mod encode;
@@ -12,7 +13,7 @@ mod tests;
 
 
 fn main() {
-    let version = 40;
+    let version = 6;
     let error_correction = "H";
     let mode = "alphanumeric";
     let text = "HELLO WORLD";
