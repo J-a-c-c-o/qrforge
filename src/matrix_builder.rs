@@ -1,9 +1,115 @@
 use std::collections::HashSet;
 
-pub fn build_qr_matrix(version: u32, error_correction: &str, data: Vec<bool>) -> Vec<Vec<Option<bool>>> {
+pub struct Matrix {
+    matrix: Vec<Option<bool>>,
+    dimension: usize,
+}
+
+impl Matrix {
+    fn new(dimension: usize) -> Self {
+        let matrix = vec![None; dimension * dimension];
+        Matrix {
+            matrix,
+            dimension,
+        }
+    }
+
+    fn get(&self, x: usize, y: usize) -> Option<bool> {
+        self.matrix[(y * self.dimension + x)]
+    }
+
+    fn set(&mut self, x: usize, y: usize, value: bool) {
+        self.matrix[(y * self.dimension + x)] = Some(value);
+    }
+
+    fn is_empty(&self, x: usize, y: usize) -> bool {
+        !self.matrix[(y * self.dimension + x)].is_some()
+    }
+
+    fn len(&self) -> usize {
+        self.dimension
+    }
+
+    fn clone(&self) -> Matrix {
+        let matrix = self.matrix.clone();
+        Matrix {
+            matrix,
+            dimension: self.dimension,
+        }
+    }
+
+
+    fn count_occurences(&self, pattern: &[bool; 11]) -> i32 {
+        let mut occurences = 0;
+        let dimension = self.len();
+
+        // Horizontal
+        for i in 0..dimension {
+            let mut count = 0;
+            let mut current = 0;
+
+            for j in 0..dimension {
+                if self.get(j, i).unwrap() == pattern[current] {
+                    count += 1;
+                } else {
+                    count = 0;
+                }
+
+                if count == 11 {
+                    occurences += 1;
+                    count = 0;
+                }
+
+                current = (current + 1) % 11;
+            }
+        }
+
+        // Vertical
+        for i in 0..dimension {
+            let mut count = 0;
+            let mut current = 0;
+
+            for j in 0..dimension {
+                if self.get(i, j).unwrap() == pattern[current] {
+                    count += 1;
+                } else {
+                    count = 0;
+                }
+
+                if count == 11 {
+                    occurences += 1;
+                    count = 0;
+                }
+
+                current = (current + 1) % 11;
+            }
+        }
+
+        occurences
+    }
+
+    pub fn pretty_print(&self) {
+        for i in 0..self.dimension {
+            for j in 0..self.dimension {
+                if self.matrix[i * self.dimension + j] == None {
+                    //make it green
+                    print!("🟩");
+                } else {
+                    print!("{}", if self.matrix[i * self.dimension + j].unwrap() { "⬛" } else { "⬜" });
+                }
+            }
+            println!();
+        }
+
+        println!();
+    }
+    
+}
+
+pub fn build_qr_matrix(version: usize, error_correction: &str, data: Vec<bool>) -> Matrix {
     let dimension = get_dimension(version);
 
-    let mut matrix: Vec<Vec<Option<bool>>> = vec![vec![None; dimension as usize]; dimension as usize];
+    let mut matrix: Matrix = Matrix::new(dimension);
 
     add_finder_patterns(&mut matrix);
 
@@ -13,9 +119,9 @@ pub fn build_qr_matrix(version: u32, error_correction: &str, data: Vec<bool>) ->
 
     add_timing_patterns(&mut matrix);
 
-    add_dark_module(&mut matrix, version);
+    add_dark_module(&mut matrix, version as usize);
 
-    add_reseverd_area(&mut matrix, version);
+    add_reseverd_area(&mut matrix, version as usize);
 
     let data_coordinates = add_data(&mut matrix, data);
 
@@ -41,30 +147,30 @@ const FINDER_PATTERN: [[bool; 7]; 7] = [
     [true, true, true, true, true, true, true],
 ];
 
-fn add_finder_patterns(matrix: &mut Vec<Vec<Option<bool>>>) {
+fn add_finder_patterns(matrix: &mut Matrix) {
     
 
     let dimension = matrix.len();
 
     for i in 0..7 {
         for j in 0..7 {
-            matrix[i][j] = Some(FINDER_PATTERN[i][j]);
-            matrix[i][dimension - 1 - j] = Some(FINDER_PATTERN[i][j]);
-            matrix[dimension - 1 - i][j] = Some(FINDER_PATTERN[i][j]);
+            matrix.set(j, i, FINDER_PATTERN[i][j]);
+            matrix.set(dimension - 1 - j, i, FINDER_PATTERN[i][j]);
+            matrix.set(j, dimension - 1 - i, FINDER_PATTERN[i][j]);
         }
     }
 }
 
-fn add_seperators(matrix: &mut Vec<Vec<Option<bool>>>) {
+fn add_seperators(matrix: &mut Matrix) {
     let dimension = matrix.len();
 
     for i in 0..8 {
-        matrix[i][7] = Some(false);
-        matrix[7][i] = Some(false);
-        matrix[i][dimension - 8] = Some(false);
-        matrix[7][dimension - 1 - i] = Some(false);
-        matrix[dimension - 8][i] = Some(false);
-        matrix[dimension - 1 - i][7] = Some(false);
+        matrix.set(7, i, false);
+        matrix.set(i, 7, false);
+        matrix.set(dimension - 8, i, false);
+        matrix.set(dimension - 1 - i, 7, false);
+        matrix.set(i, dimension - 8, false);
+        matrix.set(7, dimension - 1 - i, false);
     }
 }
 
@@ -77,20 +183,20 @@ const ALIGNMENT_PATTERN: [[bool; 5]; 5] = [
     [true, true, true, true, true],
 ];
 
-fn add_alignment_patterns(matrix: &mut Vec<Vec<Option<bool>>>, version: u32) {
+fn add_alignment_patterns(matrix: &mut Matrix, version: usize) {
     let alignment_location = get_alignment_location(version);
 
     
 
     for (x, y) in alignment_location { // center
 
-        if matrix[x as usize][y as usize] != None {
+        if !matrix.is_empty(x, y) {
             continue;
         }
 
         for i in 0..5 {
             for j in 0..5 {
-                matrix[x as usize - 2 + i][y as usize - 2 + j] = Some(ALIGNMENT_PATTERN[i][j]);
+                matrix.set(x - 2 + i, y - 2 + j, ALIGNMENT_PATTERN[j][i]);
             }
         }
     }
@@ -98,26 +204,26 @@ fn add_alignment_patterns(matrix: &mut Vec<Vec<Option<bool>>>, version: u32) {
     
 }
 
-fn add_timing_patterns(matrix: &mut Vec<Vec<Option<bool>>>) {
+fn add_timing_patterns(matrix: &mut Matrix) {
     let dimension = matrix.len();
 
     for i in 8..dimension - 8 {
-        matrix[6][i] = Some(i % 2 == 0);
-        matrix[i][6] = Some(i % 2 == 0);
+        matrix.set(i, 6, i % 2 == 0);
+        matrix.set(6, i, i % 2 == 0);
     }
 }
 
 
-fn add_dark_module(matrix: &mut Vec<Vec<Option<bool>>>, version: u32) {
+fn add_dark_module(matrix: &mut Matrix, version: usize) {
 
     let x = 8;
     let y = 4 * version + 9;
     
-    matrix[y as usize][x as usize] = Some(true);
+    matrix.set(x, y, true);
     
 }
 
-fn add_reseverd_area(matrix: &mut Vec<Vec<Option<bool>>>, version: u32) {
+fn add_reseverd_area(matrix: &mut Matrix, version: usize) {
     add_reserverd_area(matrix);
     if version >= 7 {
         add_reserverd_area_v7_to_v40(matrix);
@@ -126,47 +232,51 @@ fn add_reseverd_area(matrix: &mut Vec<Vec<Option<bool>>>, version: u32) {
 }
 
 
-fn add_reserverd_area(matrix: &mut Vec<Vec<Option<bool>>>) {
+fn add_reserverd_area(matrix: &mut Matrix) {
     let dimension = matrix.len();
 
     // top left down
     for i in 0..9 {
-        if matrix[i][8] == None {
-            matrix[i][8] = Some(false);
+
+        if matrix.is_empty(8, i) {
+            matrix.set(8, i, false);
         }
     }
 
     // top left right
     for i in 0..8 {
-        if matrix[8][i] == None {
-            matrix[8][i] = Some(false);
+
+        if matrix.is_empty(i, 8) {
+            matrix.set(i, 8, false);
         }
     }
 
     // down left down
     for i in 0..7 {
-        if matrix[dimension - 7 + i][8] == None {
-            matrix[dimension - 7 + i][8] = Some(false);
+
+        if matrix.is_empty(8, dimension - 7 + i) {
+            matrix.set(8, dimension - 7 + i, false);
         }
     }
 
     // up right right
     for i in 0..8 {
-        if matrix[8][dimension - 8 + i] == None {
-            matrix[8][dimension - 8 + i] = Some(false);
+
+        if matrix.is_empty(dimension - 8 + i, 8) {
+            matrix.set(dimension - 8 + i, 8, false);
         }
     }
 }
 
 
-fn add_reserverd_area_v7_to_v40(matrix: &mut Vec<Vec<Option<bool>>>) {
+fn add_reserverd_area_v7_to_v40(matrix: &mut Matrix) {
     let dimension = matrix.len();
 
     // down left up
     for i in 0..6 {
         for j in 0..3 {
-            if matrix[dimension - 11 + j][i] == None {
-                matrix[dimension - 11 + j][i] = Some(false);
+            if matrix.is_empty(i, dimension - 11 + j) {
+                matrix.set(i, dimension - 11 + j, false);
             }
         }
     }
@@ -174,18 +284,17 @@ fn add_reserverd_area_v7_to_v40(matrix: &mut Vec<Vec<Option<bool>>>) {
     // up right left
     for i in 0..6 {
         for j in 0..3 {
-            if matrix[i][dimension - 11 + j] == None {
-                matrix[i][dimension - 11 + j] = Some(false);
+            if matrix.is_empty(dimension - 11 + j, i) {
+                matrix.set(dimension - 11 + j, i, false);
             }
         }
     }
 }
 
-fn add_data(matrix: &mut Vec<Vec<Option<bool>>>, data: Vec<bool>) -> HashSet<(i32, i32)> {
+fn add_data(matrix: &mut Matrix, data: Vec<bool>) -> Vec<(i32, i32)> {
     let dimension = matrix.len() as i32;
-    let mut visited = HashSet::new();
+    let mut visited = Vec::new();
 
-    // x = dimension - 1, y = dimension - 1
     let mut current: (i32, i32) = (dimension - 1, dimension - 1);
     let mut direction = true; // false = up, true = down
     let mut data_index = 0;
@@ -195,18 +304,18 @@ fn add_data(matrix: &mut Vec<Vec<Option<bool>>>, data: Vec<bool>) -> HashSet<(i3
             current.0 -= 1;
         }
 
-        if matrix[current.1 as usize][current.0 as usize] == None {
-            matrix[current.1 as usize][current.0 as usize] = Some(data[data_index]);
+        if matrix.is_empty(current.0 as usize, current.1 as usize) {
+            matrix.set(current.0 as usize, current.1 as usize, data[data_index]);
             data_index += 1;
 
-            visited.insert((current.0, current.1));
+            visited.push((current.0, current.1));
         }
 
-        if matrix[current.1 as usize][current.0 as usize - 1] == None {
-            matrix[current.1 as usize][current.0 as usize - 1] = Some(data[data_index]);
+        if matrix.is_empty(current.0 as usize - 1, current.1 as usize) {
+            matrix.set(current.0 as usize - 1, current.1 as usize, data[data_index]);
             data_index += 1;
 
-            visited.insert((current.0 - 1, current.1));
+            visited.push((current.0 - 1, current.1));
         }
 
         if direction {
@@ -233,7 +342,7 @@ fn add_data(matrix: &mut Vec<Vec<Option<bool>>>, data: Vec<bool>) -> HashSet<(i3
 
 
 
-fn apply_mask(matrix: &mut Vec<Vec<Option<bool>>>, data_coordinates: HashSet<(i32, i32)>) -> u32 {
+fn apply_mask(matrix: &mut Matrix, data_coordinates: Vec<(i32, i32)>) -> u32 {
     let mut mask = 0;
     let mut min_penalty = 1 << 30;
 
@@ -254,7 +363,7 @@ fn apply_mask(matrix: &mut Vec<Vec<Option<bool>>>, data_coordinates: HashSet<(i3
 
     for i in 0..matrix.len() {
         for j in 0..matrix.len() {
-            matrix[i][j] = temp[i][j];
+            matrix.set(j, i, temp.get(j, i).unwrap());
         }
     }
 
@@ -262,83 +371,79 @@ fn apply_mask(matrix: &mut Vec<Vec<Option<bool>>>, data_coordinates: HashSet<(i3
     mask
 }
 
-fn apply_mask_pattern(matrix: &mut Vec<Vec<Option<bool>>>, mask: u32, data_coordinates: &HashSet<(i32, i32)>) {
-    let dimension = matrix.len() as i32;
-
-    for i in 0..dimension {
-        for j in 0..dimension {
-            if data_coordinates.contains(&(i, j)) {
-                match mask {
-                    0 => {
-                        if (i + j) % 2 == 0 {
-                            matrix[i as usize][j as usize] = Some(!matrix[i as usize][j as usize].unwrap());
-                        }
-                    },
-                    1 => {
-                        if i % 2 == 0 {
-                            matrix[i as usize][j as usize] = Some(!matrix[i as usize][j as usize].unwrap());
-                        }
-                    },
-                    2 => {
-                        if j % 3 == 0 {
-                            matrix[i as usize][j as usize] = Some(!matrix[i as usize][j as usize].unwrap());
-                        }
-                    },
-                    3 => {
-                        if (i + j) % 3 == 0 {
-                            matrix[i as usize][j as usize] = Some(!matrix[i as usize][j as usize].unwrap());
-                        }
-                    },
-                    4 => {
-                        if (i / 2 + j / 3) % 2 == 0 {
-                            matrix[i as usize][j as usize] = Some(!matrix[i as usize][j as usize].unwrap());
-                        }
-                    },
-                    5 => {
-                        if (i * j) % 2 + (i * j) % 3 == 0 {
-                            matrix[i as usize][j as usize] = Some(!matrix[i as usize][j as usize].unwrap());
-                        }
-                    },
-                    6 => {
-                        if ((i * j) % 2 + (i * j) % 3) % 2 == 0 {
-                            matrix[i as usize][j as usize] = Some(!matrix[i as usize][j as usize].unwrap());
-                        }
-                    },
-                    7 => {
-                        if (((i + j) % 2) + ((i * j) % 3)) % 2 == 0 {
-                            matrix[i as usize][j as usize] = Some(!matrix[i as usize][j as usize].unwrap());
-                        }
-                    },
-                    _ => {},
+fn apply_mask_pattern(matrix: &mut Matrix, mask: u32, data_coordinates: &Vec<(i32, i32)>) {
+    for (x, y) in data_coordinates.iter() {
+        let i = *y as usize;
+        let j = *x as usize;
+        match mask {
+            0 => {
+                if (i + j) % 2 == 0 {
+                    matrix.set(j, i, !matrix.get(j, i).unwrap());
                 }
-            }
+            },
+            1 => {
+                if i % 2 == 0 {
+                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                }
+            },
+            2 => {
+                if j % 3 == 0 {
+                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                }
+            },
+            3 => {
+                if (i + j) % 3 == 0 {
+                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                }
+            },
+            4 => {
+                if (i / 2 + j / 3) % 2 == 0 {
+                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                }
+            },
+            5 => {
+                if (i * j) % 2 + (i * j) % 3 == 0 {
+                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                }
+            },
+            6 => {
+                if ((i * j) % 2 + (i * j) % 3) % 2 == 0 {
+                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                }
+            },
+            7 => {
+                if (((i + j) % 2) + ((i * j) % 3)) % 2 == 0 {
+                    matrix.set(j, i, !matrix.get(j, i).unwrap());
+                }
+            },
+            _ => {},
         }
     }
 }
 
-fn calculate_penalty(matrix: &Vec<Vec<Option<bool>>>) -> i32 {
-    let dimension = matrix.len() as i32;
-
+fn calculate_penalty(matrix: &Matrix) -> i32 {
     let mut penalty = 0;
 
-    penalty += calculate_penalty_rule_1(matrix, dimension);
-    penalty += calculate_penalty_rule_2(matrix, dimension);
-    penalty += calculate_penalty_rule_3(matrix, dimension);
-    penalty += calculate_penalty_rule_4(matrix, dimension);
+    penalty += calculate_penalty_rule_1(matrix);
+    penalty += calculate_penalty_rule_2(matrix);
+    penalty += calculate_penalty_rule_3(matrix);
+    penalty += calculate_penalty_rule_4(matrix);
 
     penalty
 }
 
-fn calculate_penalty_rule_1(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> i32 {
+fn calculate_penalty_rule_1(matrix: &Matrix) -> i32 {
     let mut penalty = 0;
+
+    let dimension = matrix.len();
 
     // Horizontal
     for i in 0..dimension {
         let mut count = 1;
-        let mut current = matrix[0][i as usize];
+        let mut current = matrix.get(i, 0).unwrap();
 
         for j in 1..dimension {
-            if matrix[j as usize][i as usize] == current {
+            if matrix.get(i, j).unwrap() == current {
                 count += 1;
             } else {
                 if count >= 5 {
@@ -346,7 +451,7 @@ fn calculate_penalty_rule_1(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> 
                 }
 
                 count = 1;
-                current = matrix[j as usize][i as usize];
+                current = matrix.get(i, j).unwrap();
             }
         }
 
@@ -358,10 +463,10 @@ fn calculate_penalty_rule_1(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> 
     // Vertical
     for i in 0..dimension {
         let mut count = 1;
-        let mut current = matrix[i as usize][0];
+        let mut current = matrix.get(0, i).unwrap();
 
         for j in 1..dimension {
-            if matrix[i as usize][j as usize] == current {
+            if matrix.get(j, i).unwrap() == current {
                 count += 1;
             } else {
                 if count >= 5 {
@@ -369,7 +474,7 @@ fn calculate_penalty_rule_1(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> 
                 }
 
                 count = 1;
-                current = matrix[i as usize][j as usize];
+                current = matrix.get(j, i).unwrap();
             }
         }
 
@@ -382,14 +487,15 @@ fn calculate_penalty_rule_1(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> 
     
 }
 
-fn calculate_penalty_rule_2(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> i32 {
+fn calculate_penalty_rule_2(matrix: &Matrix) -> i32 {
     let mut penalty = 0;
+    let dimension = matrix.len();
 
     for i in 0..dimension - 1 {
         for j in 0..dimension - 1 {
-            if matrix[i as usize][j as usize] == matrix[i as usize][j as usize + 1] &&
-               matrix[i as usize][j as usize] == matrix[i as usize + 1][j as usize] &&
-               matrix[i as usize][j as usize] == matrix[i as usize + 1][j as usize + 1] {
+            if matrix.get(j, i).unwrap() == matrix.get(j + 1, i).unwrap() &&
+               matrix.get(j, i).unwrap() == matrix.get(j, i + 1).unwrap() &&
+               matrix.get(j, i).unwrap() == matrix.get(j + 1, i + 1).unwrap() {
                 penalty += 3;
             }
         }
@@ -400,60 +506,21 @@ fn calculate_penalty_rule_2(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> 
 
 const PATTERN: [bool; 11] = [true, false, true, true, true, false, true, false, false, false, false];
 
-fn check_pattern(slice: &[Option<bool>]) -> bool {
-    for (i, &val) in slice.iter().enumerate() {
-        if val != Some(PATTERN[i]) {
-            return false;
-        }
-    }
-    true
-}
+const REVERSED_PATTERN: [bool; 11] = [false, false, false, false, false, true, false, true, true, true, false];
 
-fn check_reversed_pattern(slice: &[Option<bool>]) -> bool {
-    for (i, &val) in slice.iter().enumerate() {
-        if val != Some(PATTERN[10 - i]) {
-            return false;
-        }
-    }
-    true
-}
-
-fn calculate_penalty_rule_3(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> i32 {
-    let mut penalty = 0;
-    let dim = dimension as usize;
-
-    // Horizontal check
-    for i in 0..dim {
-        for j in 0..(dim - 10) {
-            let row_slice = &matrix[i][j..j+11];
-            if check_pattern(row_slice) || check_reversed_pattern(row_slice) {
-                penalty += 40;
-            }
-        }
-    }
-
-    // Vertical check
-    for j in 0..dim {
-        for i in 0..(dim - 10) {
-            // Collect the 11 vertical items; store them in a small local array
-            let mut column_slice = [None; 11];
-            for k in 0..11 {
-                column_slice[k] = matrix[i + k][j];
-            }
-            if check_pattern(&column_slice) || check_reversed_pattern(&column_slice) {
-                penalty += 40;
-            }
-        }
-    }
+fn calculate_penalty_rule_3(matrix: &Matrix) -> i32 {
+    let penalty = (matrix.count_occurences(&PATTERN) + matrix.count_occurences(&REVERSED_PATTERN)) * 40;
 
     penalty
+    
 }
-fn calculate_penalty_rule_4(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> i32 {
+fn calculate_penalty_rule_4(matrix: &Matrix) -> i32 {
     let mut dark_count = 0;
+    let dimension = matrix.len();
 
     for i in 0..dimension {
         for j in 0..dimension {
-            if matrix[i as usize][j as usize].unwrap() {
+            if matrix.get(j, i).unwrap() {
                 dark_count += 1;
             }
         }
@@ -478,7 +545,7 @@ fn calculate_penalty_rule_4(matrix: &Vec<Vec<Option<bool>>>, dimension: i32) -> 
 }
 
 
-fn apply_format_version_information(matrix: &mut Vec<Vec<Option<bool>>>, version: u32, error_correction: &str, mask: u32) {
+fn apply_format_version_information(matrix: &mut Matrix, version: usize, error_correction: &str, mask: u32) {
 
     let dimension = matrix.len();
 
@@ -488,8 +555,8 @@ fn apply_format_version_information(matrix: &mut Vec<Vec<Option<bool>>>, version
 
         for i in 0..6 {
             for j in 0..3 {
-                matrix[5 - i as usize][dimension- 11 + 2 - j as usize] = Some(version_information[version_information_index]);
-                matrix[dimension - 11 + 2 - j as usize][5 - i as usize] = Some(version_information[version_information_index]);
+                matrix.set(dimension - 11 + 2 - j, 5 - i, version_information[version_information_index]);
+                matrix.set(5 - i, dimension - 11 + 2 - j, version_information[version_information_index]);
 
                 version_information_index += 1;
             }
@@ -504,14 +571,14 @@ fn apply_format_version_information(matrix: &mut Vec<Vec<Option<bool>>>, version
 
     for i in 0..9 {
         if i != 6 {
-            matrix[8][i] = Some(format_information_string[format_information_index]);
+            matrix.set(i, 8, format_information_string[format_information_index]);
             format_information_index += 1;
         }
     }
 
     for i in 0..8 {
         if (7 - i) != 6 {
-            matrix[7-i][8] = Some(format_information_string[format_information_index]);
+            matrix.set(8, 7 - i, format_information_string[format_information_index]);
             format_information_index += 1;
         }
     }
@@ -520,12 +587,12 @@ fn apply_format_version_information(matrix: &mut Vec<Vec<Option<bool>>>, version
     format_information_index = 0;
 
     for i in 0..7 {
-        matrix[dimension - 1 - i][8] = Some(format_information_string[format_information_index]);
+        matrix.set(8, dimension - 1 - i, format_information_string[format_information_index]);
         format_information_index += 1;
     }
 
     for i in 0..8 {
-        matrix[8][dimension - 8 + i] = Some(format_information_string[format_information_index]);
+        matrix.set(dimension - 8 + i, 8, format_information_string[format_information_index]);
         format_information_index += 1;
     }
 
@@ -535,27 +602,27 @@ fn apply_format_version_information(matrix: &mut Vec<Vec<Option<bool>>>, version
 }
 
 
-fn get_dimension(version: u32) -> u32 {
+fn get_dimension(version: usize) -> usize {
     (version - 1) * 4 + 21
 }
 
-fn get_alignment_location(version: u32) -> Vec<(u32, u32)> {
+fn get_alignment_location(version: usize) -> Vec<(usize, usize)> {
     let mut alignment_pattern = Vec::new();
 
     if version == 1 {
         return alignment_pattern;
     }
 
-    for i in 0..ALIGNMENT_PATTERN_LOCATION[version as usize - 2].len() {
-        for j in 0..ALIGNMENT_PATTERN_LOCATION[version as usize - 2].len() {
-            alignment_pattern.push((ALIGNMENT_PATTERN_LOCATION[version as usize - 2][i], ALIGNMENT_PATTERN_LOCATION[version as usize - 2][j]));
+    for i in 0..ALIGNMENT_PATTERN_LOCATION[version - 2].len() {
+        for j in 0..ALIGNMENT_PATTERN_LOCATION[version - 2].len() {
+            alignment_pattern.push((ALIGNMENT_PATTERN_LOCATION[version - 2][i], ALIGNMENT_PATTERN_LOCATION[version - 2][j]));
         }
     }
 
     alignment_pattern
 }
 
-const ALIGNMENT_PATTERN_LOCATION: [&[u32]; 39] = [
+const ALIGNMENT_PATTERN_LOCATION: [&[usize]; 39] = [
     &[6, 18], &[6, 22], &[6, 26], &[6, 30], &[6, 34], &[6, 22, 38], &[6, 24, 42], &[6, 26, 46], &[6, 28, 50], &[6, 30, 54],
     &[6, 32, 58], &[6, 34, 62], &[6, 26, 46, 66], &[6, 26, 48, 70], &[6, 26, 50, 74], &[6, 30, 54, 78], &[6, 30, 56, 82], &[6, 30, 58, 86], &[6, 34, 62, 90], &[6, 28, 50, 72, 94],
     &[6, 26, 50, 74, 98], &[6, 30, 54, 78, 102], &[6, 28, 54, 80, 106], &[6, 32, 58, 84, 110], &[6, 30, 58, 86, 114], &[6, 34, 62, 90, 118], &[6, 26, 50, 74, 98, 122], &[6, 30, 54, 78, 102, 126], &[6, 26, 52, 78, 104, 130], &[6, 30, 56, 82, 108, 134],
@@ -599,8 +666,8 @@ const VERSION_INFORMATION : [&str; 34] = [
     "100101010000101110", "100110101001100100", "100111010101000001", "101000110001101001"
 ];
 
-fn get_version_information(version: u32) -> Vec<bool> {
-    let version_info = VERSION_INFORMATION[version as usize - 7];
+fn get_version_information(version: usize) -> Vec<bool> {
+    let version_info = VERSION_INFORMATION[version - 7];
     
     let mut version_information = Vec::new();
 

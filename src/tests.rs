@@ -16,7 +16,7 @@ use test::Bencher;
         let result = interleave::interleave(blocks, ec_blocks, version);
     
     
-        let _matrix = matrix_builder::build_qr_matrix(version, error_correction, result);
+        let _matrix = matrix_builder::build_qr_matrix(version as usize, error_correction, result);
         });
         
     }
