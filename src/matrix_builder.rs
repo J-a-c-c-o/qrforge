@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 
 pub struct Matrix {
     matrix: Vec<Option<bool>>,
@@ -15,15 +14,15 @@ impl Matrix {
     }
 
     fn get(&self, x: usize, y: usize) -> Option<bool> {
-        self.matrix[(y * self.dimension + x)]
+        self.matrix[y * self.dimension + x]
     }
 
     fn set(&mut self, x: usize, y: usize, value: bool) {
-        self.matrix[(y * self.dimension + x)] = Some(value);
+        self.matrix[y * self.dimension + x] = Some(value);
     }
 
     fn is_empty(&self, x: usize, y: usize) -> bool {
-        !self.matrix[(y * self.dimension + x)].is_some()
+        !self.matrix[y * self.dimension + x].is_some()
     }
 
     fn len(&self) -> usize {
