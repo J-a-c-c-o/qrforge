@@ -113,14 +113,14 @@ impl Matrix {
     }
 
     pub fn pretty_print(&self) {
+        let black = "██";
+        let white = "  ";
         for i in 0..self.dimension {
             for j in 0..self.dimension {
                 if self.is_empty(j, i) {
-                    //make it green
-                    print!("🟩");
+                    print!("{}", "  ");
                 } else {
-                    // print!("{}", if self.matrix[i * self.dimension + j] { "⬛" } else { "⬜" });
-                    print!("{}", if self.get(j, i) { "⬛" } else { "⬜" });
+                    print!("{}", if self.get(j, i) { black } else { white });
                 }
             }
             println!();
