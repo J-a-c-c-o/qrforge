@@ -9,7 +9,7 @@ mod interleave;
 
 #[tokio::main]
 async fn main() {
-    let version = 3;
+    let version = 40;
     let error_correction = "H";
     let mode = "byte";
     let text = "HELLO WORLD";

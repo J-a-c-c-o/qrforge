@@ -378,7 +378,7 @@ fn apply_mask(matrix: &mut Matrix, data_coordinates: Vec<(i32, i32)>) -> u32 {
             .collect();
 
         let (_, _, best_matrix) = results
-            .iter()
+            .par_iter()
             .min_by_key(|(_, penalty, _)| *penalty)
             .unwrap();
 

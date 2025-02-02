@@ -120,56 +120,30 @@ fn part0(n: u32, generator: &Vec<(u32,u32)>, data_polynomial: &Vec<(u32,u32)>, l
 
 fn partn(polynomial: &Vec<(u32,u32)>, generator: &Vec<(u32,u32)>, n: u32, log_table: &[u8; 256], antilog_table: &[u8; 256]) -> Vec<u32> {
     if n == 0 {
-        let mut result: Vec<u32> = Vec::new();
-        for (a,_) in polynomial.iter() {
-            result.push(*a);
-        }
-        return result;
+        return polynomial.iter().map(|(a,_)| *a).collect();
     }
 
-    // step a
-    let lookup = lookup(polynomial.get(0).unwrap().0, log_table);
-    let mut temp: Vec::<(u32,u32)> = Vec::new();
-    for (a,b) in generator.iter() {
-        temp.push((((*a) + lookup) % 255, *b));
-    }
-
-    // convert to polynomial
-    let mut generator_polynomial: Vec<(u32,u32)> = Vec::new();
-    for (a,b) in temp.iter() {
-        let new_a = reverse_lookup(*a, antilog_table);
-        generator_polynomial.push((new_a, *b));
-    }
-
-
-    // step b
-    let mut new_poly: Vec<(u32,u32)> = Vec::new();
-    for i in 0..max(polynomial.len(), generator_polynomial.len()) {
-        let mut poly: &(u32, u32) = &(0,polynomial.get(0).unwrap().1 - i as u32);
-        // polynomial.get(i as usize).unwrap();
-        if polynomial.len() > i as usize {
-            poly = polynomial.get(i as usize).unwrap();
-        }
-        
-        let mut gen = 0;
-
-        // generator_polynomial.get(i as usize).unwrap().0;
-        if generator_polynomial.len() > i as usize {
-            gen = generator_polynomial.get(i as usize).unwrap().0;
-        }
-
-        new_poly.push((poly.0 ^ gen, poly.1));
-
-    }
-
-
-    // remove 0s leading
-    new_poly.remove(0);
-
-    // recursive
-    partn(&new_poly , generator, n-1, log_table, antilog_table)
-
+    let lookup = lookup(polynomial[0].0, log_table);
     
+    // Pre-allocate new polynomial with max possible size
+    let mut new_poly = Vec::with_capacity(max(polynomial.len(), generator.len()));
+    
+    // Combine generator transformation and XOR operations
+    for i in 1..max(polynomial.len(), generator.len()) {
+        let poly_val = polynomial.get(i).map_or(0, |&(a,_)| a);
+        let gen_val = if i < generator.len() {
+            reverse_lookup((generator[i].0 + lookup) % 255, antilog_table)
+        } else {
+            0
+        };
+        
+        new_poly.push((
+            poly_val ^ gen_val,
+            polynomial[0].1 - i as u32
+        ));
+    }
+
+    partn(&new_poly, generator, n-1, log_table, antilog_table)
 }
 
 fn max(a: usize, b: usize) -> usize {
@@ -181,8 +155,6 @@ fn max(a: usize, b: usize) -> usize {
 
 
 fn lookup(a: u32, log_table: &[u8; 256]) -> u32 {
-
-    
 
     log_table[a as usize] as u32
     
