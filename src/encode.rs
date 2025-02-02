@@ -1,6 +1,6 @@
 use crate::{ErrorCorrection, Mode};
 
-pub fn encode(version: usize, error_correction: &ErrorCorrection, mode: &Mode, text: &str) -> Vec<bool> {
+pub(crate) fn encode(version: usize, error_correction: &ErrorCorrection, mode: &Mode, text: &str) -> Vec<bool> {
     let bit_count = get_bit_count(version, mode);
     let mode_indicator = get_mode(mode);
     let size = get_size(text, bit_count);

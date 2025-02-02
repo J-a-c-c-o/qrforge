@@ -2,6 +2,9 @@ mod encode;
 mod correction;
 mod matrix_builder;
 mod interleave;
+mod mode_selector;
+mod error;
+use error::Error;
 
 pub struct QRCode {
     matrix: Vec<bool>,
@@ -9,9 +12,70 @@ pub struct QRCode {
     dimension: usize,
 }
 
+
+pub struct QRBuilder {
+    text: String,
+    version: Option<usize>,
+    error_correction: Option<ErrorCorrection>,
+    mode: Option<Mode>,
+}
+
+impl QRBuilder {
+    pub fn new(text: &str) -> Self {
+        QRBuilder {
+            text: text.to_string(),
+            version: None,
+            error_correction: None,
+            mode: None,
+        }
+    }
+
+    pub fn version(mut self, version: usize) -> Self {
+        self.version = Some(version);
+        self
+    }
+
+    pub fn error_correction(mut self, ec: ErrorCorrection) -> Self {
+        self.error_correction = Some(ec);
+        self
+    }
+
+    pub fn mode(mut self, mode: Mode) -> Self {
+        self.mode = Some(mode);
+        self
+    }
+
+    pub fn build(self) -> Result<QRCode, Error> {
+        let error_correction = self.error_correction.unwrap_or(ErrorCorrection::M);
+        let mode = self.mode.unwrap_or_else(|| mode_selector::select_mode(&self.text));
+        let version = match self.version {
+            Some(v) => v,
+            None => mode_selector::get_version(&self.text, &error_correction, &mode)?
+        };
+
+        QRCode::build(version, error_correction, mode, &self.text)
+    }
+}
+
 impl QRCode {
-    fn new(version: usize, error_correction: ErrorCorrection, mode: Mode, text: &str) -> QRCode {
-        let dimension = Self::get_dimension(version);
+
+    pub fn builder(text: &str) -> QRBuilder {
+        QRBuilder::new(text)
+    }
+
+    fn build(version: usize, error_correction: ErrorCorrection, mode: Mode, text: &str) -> Result<QRCode, Error> {
+        let dimension = Self::calculate_dimension(version);
+
+        let capacity = match mode {
+            Mode::Numeric => text.len() * 3 / 10,
+            Mode::Alphanumeric => text.len() * 2 / 5,
+            Mode::Byte => text.len(),
+            Mode::Kanji => text.len() / 2,
+        };
+
+        if capacity > mode_selector::get_capacity(version, &error_correction, &mode) {
+            return Err(Error::new("Data is too long"));
+        }
 
         let mut matrix = QRCode {
             matrix: vec![false; dimension * dimension],
@@ -25,14 +89,14 @@ impl QRCode {
 
         matrix_builder::build_qr_matrix(&mut matrix, version, &error_correction, result);
 
-        matrix
+        Ok(matrix)
     }
 
-    fn get(&self, x: usize, y: usize) -> bool {
+    pub fn get(&self, x: usize, y: usize) -> bool {
         self.matrix[y * self.dimension + x]
     }
 
-    fn set(&mut self, x: usize, y: usize, value: bool) {
+    pub fn set(&mut self, x: usize, y: usize, value: bool) {
         self.matrix[y * self.dimension + x] = value;
         self.some_matrix[y * self.dimension + x] = true;
     }
@@ -41,11 +105,11 @@ impl QRCode {
         !self.some_matrix[y * self.dimension + x]
     }
     
-    fn len(&self) -> usize {
+    fn dimension(&self) -> usize {
         self.dimension
     }
 
-    fn clone(&self) -> QRCode {
+    pub fn clone(&self) -> QRCode {
         let matrix = self.matrix.clone();
         let some_matrix = self.some_matrix.clone();
         QRCode {
@@ -55,7 +119,7 @@ impl QRCode {
         }
     }
 
-    fn get_dimension(version: usize) -> usize {
+    fn calculate_dimension(version: usize) -> usize {
         (version - 1) * 4 + 21
     }
 
@@ -86,6 +150,27 @@ enum Mode {
     Kanji,
 }
 
+impl Mode {
+    pub fn from(value: usize) -> Mode {
+        match value {
+            0 => Mode::Numeric,
+            1 => Mode::Alphanumeric,
+            2 => Mode::Byte,
+            3 => Mode::Kanji,
+            _ => panic!("Invalid mode"),
+        }
+    }
+
+    pub fn to_value(&self) -> usize {
+        match self {
+            Mode::Numeric => 0,
+            Mode::Alphanumeric => 1,
+            Mode::Byte => 2,
+            Mode::Kanji => 3,
+        }
+    }
+}
+
 enum ErrorCorrection {
     L,
     M,
@@ -93,17 +178,42 @@ enum ErrorCorrection {
     H,
 }
 
-fn main() {
-    let version = 40;
-    let error_correction = ErrorCorrection::H;
-    let mode = Mode::Byte;
-    let text = "HELLO WORLD";
-      
+impl ErrorCorrection {
+    pub fn from(value: usize) -> ErrorCorrection {
+        match value {
+            0 => ErrorCorrection::L,
+            1 => ErrorCorrection::M,
+            2 => ErrorCorrection::Q,
+            3 => ErrorCorrection::H,
+            _ => panic!("Invalid error correction level"),
+        }
+    }
+
+    pub fn to_value(&self) -> usize {
+        match self {
+            ErrorCorrection::L => 0,
+            ErrorCorrection::M => 1,
+            ErrorCorrection::Q => 2,
+            ErrorCorrection::H => 3,
+        }
+    }
+}
+
+
+
+
+fn main() -> Result<(), Error> {
+
     let start = std::time::Instant::now();
-    let matrix = QRCode::new(version, error_correction, mode, text);
+    QRCode::builder("HELLO WORLD")
+    .error_correction(ErrorCorrection::H)
+    .mode(Mode::Byte)
+    .version(5)
+    .build()?.print();
+
     println!("Time: {:?}", start.elapsed());
 
-    // matrix.print();   
+    Ok(()) 
     
 }
 

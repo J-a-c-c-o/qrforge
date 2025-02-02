@@ -7,7 +7,7 @@ lazy_static! {
     static ref GF_TABLES: ([u8; 256], [u8; 256]) = generate_gf_tables();
 }
 
-pub fn correction(version: usize, error_correction: &ErrorCorrection, combined_data: Vec<bool>) 
+pub(crate) fn correction(version: usize, error_correction: &ErrorCorrection, combined_data: Vec<bool>) 
     -> (Vec<Vec<Vec<bool>>>, Vec<Vec<Vec<bool>>>) {
     
     let blocks: Vec<Vec<Vec<bool>>> = split_into_blocks(combined_data, version, error_correction);
@@ -191,12 +191,7 @@ fn generate_gf_tables() -> ([u8; 256], [u8; 256]) {
 
 fn split_into_blocks(combined_data: Vec<bool>, version: usize, error_correction: &ErrorCorrection) -> Vec<Vec<Vec<bool>>> {
 
-    let correction_level = match error_correction {
-        ErrorCorrection::L => 0,
-        ErrorCorrection::M => 1,
-        ErrorCorrection::Q => 2,
-        ErrorCorrection::H => 3,
-    };
+    let correction_level = error_correction.to_value();
     
     let block_lookup = BLOCK_LOOKUP[version - 1][correction_level];
 
@@ -229,12 +224,7 @@ fn split_into_blocks(combined_data: Vec<bool>, version: usize, error_correction:
 
 
 fn ec_codewords(version: usize, error_correction: &ErrorCorrection) -> u32 {
-    let correction_level = match error_correction {
-        ErrorCorrection::L => 0,
-        ErrorCorrection::M => 1,
-        ErrorCorrection::Q => 2,
-        ErrorCorrection::H => 3,
-    };
+    let correction_level = error_correction.to_value();
 
     EC_CODEWORDS[version - 1][correction_level] as u32
 }

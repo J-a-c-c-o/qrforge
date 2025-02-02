@@ -1,4 +1,4 @@
-pub fn interleave(blocks: Vec<Vec<Vec<bool>>>, ec_blocks: Vec<Vec<Vec<bool>>>, version: usize) -> Vec<bool> {
+pub(crate) fn interleave(blocks: Vec<Vec<Vec<bool>>>, ec_blocks: Vec<Vec<Vec<bool>>>, version: usize) -> Vec<bool> {
     let interleave_ec = interleave_blocks(&ec_blocks);
     let interleave_data = interleave_blocks(&blocks);
 
