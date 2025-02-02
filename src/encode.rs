@@ -1,4 +1,6 @@
-pub fn encode(version: u32, error_correction: &str, mode: &str, text: &str) -> Vec<bool> {
+use crate::{ErrorCorrection, Mode};
+
+pub fn encode(version: usize, error_correction: &ErrorCorrection, mode: &Mode, text: &str) -> Vec<bool> {
     let bit_count = get_bit_count(version, mode);
     let mode_indicator = get_mode(mode);
     let size = get_size(text, bit_count);
@@ -59,44 +61,42 @@ fn build_combined_data(mode_indicator: Vec<bool>, size: Vec<bool>, data: Vec<boo
 
 
 
-fn get_bit_count(version: u32, mode: &str) -> u32 {
-
+fn get_bit_count(version: usize, mode: &Mode) -> u32 {
     match mode {
-        "numeric" => match version {
+        Mode::Numeric => match version {
             1..=9 => 10,
             10..=26 => 12,
             27..=40 => 14,
             _ => 0,
         },
-        "alphanumeric" => match version {
+        Mode::Alphanumeric => match version {
             1..=9 => 9,
             10..=26 => 11,
             27..=40 => 13,
             _ => 0,
         },
-        "byte" => match version {
+        Mode::Byte => match version {
             1..=9 => 8,
             10..=26 => 16,
             27..=40 => 16,
             _ => 0,
         },
-        "kanji" => match version {
+        Mode::Kanji => match version {
             1..=9 => 8,
             10..=26 => 10,
             27..=40 => 12,
             _ => 0,
         },
-        _ => 0,
     }
 }
 
-fn get_mode(mode: &str) -> Vec<bool> {
+
+fn get_mode(mode: &Mode) -> Vec<bool> {
     match mode {
-        "numeric" => vec![false, false, false, true],
-        "alphanumeric" => vec![false, false, true, false],
-        "byte" => vec![false, true, false, false],
-        "kanji" => vec![true, false, false, false],
-        _ => vec![false, false, false, false],
+        Mode::Numeric => vec![false, false, false, true],
+        Mode::Alphanumeric => vec![false, false, true, false],
+        Mode::Byte => vec![false, true, false, false],
+        Mode::Kanji => vec![true, false, false, false],
     }
 }
 
@@ -111,11 +111,11 @@ fn get_size(text: &str, bit_count: u32) -> Vec<bool> {
     size_bits
 }
 
-fn get_data(text: &str, mode: &str) -> Vec<bool> {
+fn get_data(text: &str, mode: &Mode) -> Vec<bool> {
     let mut data = vec![];
 
     match mode {
-        "numeric" => {
+        Mode::Numeric => {
             // Split text into groups of 3
             for chunk in text.chars().collect::<Vec<char>>().chunks(3) {
                 let mut value = 0;
@@ -142,7 +142,7 @@ fn get_data(text: &str, mode: &str) -> Vec<bool> {
                 }
             }
         }
-        "alphanumeric" => {
+        Mode::Alphanumeric => {
             let mut chars = text.chars();
             while let Some(c1) = chars.next() {
                 if chars.clone().count() == 0 {
@@ -158,17 +158,16 @@ fn get_data(text: &str, mode: &str) -> Vec<bool> {
                 }
             }
         }
-        "byte" => {
+        Mode::Byte => {
             for byte in text.bytes() {
                 for i in (0..8).rev() {
                     data.push((byte >> i) & 1 == 1);
                 }
             }
         }
-        "kanji" => {
+        Mode::Kanji => {
             // TODO: Implement kanji encoding
         }
-        _ => {} // Invalid mode
     }
 
     data
@@ -236,19 +235,19 @@ const DATA_CODEWORDS: [[u32; 4]; 40] = [
     ];
 
 
-fn lookup_data_codewords(version: u32, error_correction: &str) -> u32 {
+fn lookup_data_codewords(version: usize, error_correction: &ErrorCorrection) -> u32 {
     // Error correction index mapping
+
     let ec_index = match error_correction {
-        "L" => 0,
-        "M" => 1,
-        "Q" => 2,
-        "H" => 3,
-        _ => return 0, // Invalid error correction level
+        ErrorCorrection::L => 0,
+        ErrorCorrection::M => 1,
+        ErrorCorrection::Q => 2,
+        ErrorCorrection::H => 3,
     };
 
     // Validate version range and return corresponding value
     if version >= 1 && version <= 40 {
-        DATA_CODEWORDS[version as usize - 1][ec_index]
+        DATA_CODEWORDS[version - 1][ec_index]
     } else {
         0 // Invalid version
     }

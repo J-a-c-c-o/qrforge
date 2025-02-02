@@ -1,14 +1,16 @@
 use rayon::prelude::*;
 use lazy_static::lazy_static;
 
+use crate::ErrorCorrection;
+
 lazy_static! {
     static ref GF_TABLES: ([u8; 256], [u8; 256]) = generate_gf_tables();
 }
 
-pub fn correction(version: u32, error_correction: &str, combined_data: Vec<bool>) 
+pub fn correction(version: usize, error_correction: &ErrorCorrection, combined_data: Vec<bool>) 
     -> (Vec<Vec<Vec<bool>>>, Vec<Vec<Vec<bool>>>) {
     
-    let blocks = split_into_blocks(combined_data, version, error_correction);
+    let blocks: Vec<Vec<Vec<bool>>> = split_into_blocks(combined_data, version, error_correction);
     let ec_codewords = ec_codewords(version, error_correction);
     
     // Use pre-generated tables
@@ -187,17 +189,16 @@ fn generate_gf_tables() -> ([u8; 256], [u8; 256]) {
 }
 
 
-fn split_into_blocks(combined_data: Vec<bool>, version: u32, error_correction: &str) -> Vec<Vec<Vec<bool>>> {
+fn split_into_blocks(combined_data: Vec<bool>, version: usize, error_correction: &ErrorCorrection) -> Vec<Vec<Vec<bool>>> {
 
     let correction_level = match error_correction {
-        "L" => 0,
-        "M" => 1,
-        "Q" => 2,
-        "H" => 3,
-        _ => 0,
+        ErrorCorrection::L => 0,
+        ErrorCorrection::M => 1,
+        ErrorCorrection::Q => 2,
+        ErrorCorrection::H => 3,
     };
     
-    let block_lookup = BLOCK_LOOKUP[version as usize - 1][correction_level];
+    let block_lookup = BLOCK_LOOKUP[version - 1][correction_level];
 
     let group1_blocks = block_lookup[0] as usize;
     let group1_amount = block_lookup[1] as usize;
@@ -227,16 +228,15 @@ fn split_into_blocks(combined_data: Vec<bool>, version: u32, error_correction: &
 
 
 
-fn ec_codewords(version: u32, error_correction: &str) -> u32 {
+fn ec_codewords(version: usize, error_correction: &ErrorCorrection) -> u32 {
     let correction_level = match error_correction {
-        "L" => 0,
-        "M" => 1,
-        "Q" => 2,
-        "H" => 3,
-        _ => 0,
+        ErrorCorrection::L => 0,
+        ErrorCorrection::M => 1,
+        ErrorCorrection::Q => 2,
+        ErrorCorrection::H => 3,
     };
 
-    EC_CODEWORDS[version as usize - 1][correction_level] as u32
+    EC_CODEWORDS[version - 1][correction_level] as u32
 }
 
 

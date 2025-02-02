@@ -1,4 +1,4 @@
-pub fn interleave(blocks: Vec<Vec<Vec<bool>>>, ec_blocks: Vec<Vec<Vec<bool>>>, version: u32) -> Vec<bool> {
+pub fn interleave(blocks: Vec<Vec<Vec<bool>>>, ec_blocks: Vec<Vec<Vec<bool>>>, version: usize) -> Vec<bool> {
     let interleave_ec = interleave_blocks(&ec_blocks);
     let interleave_data = interleave_blocks(&blocks);
 
@@ -34,9 +34,9 @@ fn interleave_blocks(blocks: &Vec<Vec<Vec<bool>>>) -> Vec<Vec<bool>> {
     result
 }
 
-fn get_remainder_bits(version: u32) -> Vec<bool> {
+fn get_remainder_bits(version: usize) -> Vec<bool> {
     let mut result: Vec<bool> = Vec::new();
-    let remaining = REMAINING_BITS[version as usize - 1];
+    let remaining = REMAINING_BITS[version - 1];
     for _ in 0..remaining {
         result.push(false);
     }

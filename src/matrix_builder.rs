@@ -1,159 +1,24 @@
 use rayon::prelude::*;
-
-pub struct Matrix {
-    matrix: Vec<bool>,
-    some_matrix: Vec<bool>,
-    dimension: usize,
-}
-
-impl Matrix {
-    fn new(dimension: usize) -> Self {
-        Self {
-            matrix: vec![false; dimension * dimension],
-            some_matrix: vec![false; dimension * dimension],
-            dimension,
-        }
-    }
-
-    fn get(&self, x: usize, y: usize) -> bool {
-        self.matrix[y * self.dimension + x]
-    }
-
-    fn set(&mut self, x: usize, y: usize, value: bool) {
-        self.matrix[y * self.dimension + x] = value;
-        self.some_matrix[y * self.dimension + x] = true;
-    }
-
-    fn is_empty(&self, x: usize, y: usize) -> bool {
-        !self.some_matrix[y * self.dimension + x]
-    }
-    
-    fn len(&self) -> usize {
-        self.dimension
-    }
-
-    fn clone(&self) -> Matrix {
-        let matrix = self.matrix.clone();
-        let some_matrix = self.some_matrix.clone();
-        Matrix {
-            matrix,
-            some_matrix,
-            dimension: self.dimension,
-        }
-    }
+use crate::{ErrorCorrection, QRCode};
 
 
-    fn count_occurences(&self, pattern: &[bool; 11]) -> i32 {
-        // maybe use bit manipulation
-        let mut count = 0;
-        let dimension = self.len();
-
-        // Horizontal use && to check if it contains the pattern
-        for i in 0..dimension {
-            let mut current = 0;
-            let mut current_count = 0;
-
-            for j in 0..dimension {
-                if self.get(j, i) == pattern[current] {
-                    current_count += 1;
-                    current += 1;
-                } else {
-                    current = 0;
-                    current_count = 0;
-                }
-
-                if current_count == 11 {
-                    count += 1;
-                    current = 0;
-                    current_count = 0;
-                }
-            }
-        }
-
-        // Vertical
-        for i in 0..dimension {
-            let mut current = 0;
-            let mut current_count = 0;
-
-            for j in 0..dimension {
-                if self.get(i, j) == pattern[current] {
-                    current_count += 1;
-                    current += 1;
-                } else {
-                    current = 0;
-                    current_count = 0;
-                }
-
-                if current_count == 11 {
-                    count += 1;
-                    current = 0;
-                    current_count = 0;
-                }
-            }
-        }
-
-        count
-        
-        
-    }
-
-    fn count_boxes(&self) -> i32 {
-        let dimension = self.len();
-        let mut count = 0;
-
-        for i in 0..dimension - 1 {
-            for j in 0..dimension - 1 {
-                if self.get(j, i) == self.get(j + 1, i) && self.get(j, i) == self.get(j, i + 1) && self.get(j, i) == self.get(j + 1, i + 1) {
-                    count += 1;
-                }
-            }
-        }
-
-        count
-        
-    }
-
-    pub fn pretty_print(&self) {
-        let black = "██";
-        let white = "  ";
-        for i in 0..self.dimension {
-            for j in 0..self.dimension {
-                if self.is_empty(j, i) {
-                    print!("{}", "  ");
-                } else {
-                    print!("{}", if self.get(j, i) { black } else { white });
-                }
-            }
-            println!();
-        }
-
-        println!();
-    }
-    
-}
-
-pub async fn prepare_qr_matrix(version: usize) -> Matrix {
-    let dimension = get_dimension(version);
-
-    let mut matrix: Matrix = Matrix::new(dimension);
-
-    add_finder_patterns(&mut matrix);
-
-    add_seperators(&mut matrix);
-
-    add_alignment_patterns(&mut matrix, version);
-
-    add_timing_patterns(&mut matrix);
-
-    add_dark_module(&mut matrix, version as usize);
-
-    add_reseverd_area(&mut matrix, version as usize);
-    
-    matrix
-}
 
 
-pub fn build_qr_matrix(matrix: &mut Matrix, version: usize, error_correction: &str, data: Vec<bool>) {
+pub fn build_qr_matrix(matrix: &mut QRCode, version: usize, error_correction: &ErrorCorrection, data: Vec<bool>) {
+
+
+    add_finder_patterns(matrix);
+
+    add_seperators(matrix);
+
+    add_alignment_patterns(matrix, version);
+
+    add_timing_patterns(matrix);
+
+    add_dark_module(matrix, version as usize);
+
+    add_reseverd_area(matrix, version as usize);
+
     let data_coordinates = add_data(matrix, data);
 
     let mask = apply_mask(matrix, data_coordinates);
@@ -171,7 +36,7 @@ const FINDER_PATTERN: [[bool; 7]; 7] = [
     [true, true, true, true, true, true, true],
 ];
 
-fn add_finder_patterns(matrix: &mut Matrix) {
+fn add_finder_patterns(matrix: &mut QRCode) {
     
 
     let dimension = matrix.len();
@@ -185,7 +50,7 @@ fn add_finder_patterns(matrix: &mut Matrix) {
     }
 }
 
-fn add_seperators(matrix: &mut Matrix) {
+fn add_seperators(matrix: &mut QRCode) {
     let dimension = matrix.len();
 
     for i in 0..8 {
@@ -207,7 +72,7 @@ const ALIGNMENT_PATTERN: [[bool; 5]; 5] = [
     [true, true, true, true, true],
 ];
 
-fn add_alignment_patterns(matrix: &mut Matrix, version: usize) {
+fn add_alignment_patterns(matrix: &mut QRCode, version: usize) {
     let alignment_location = get_alignment_location(version);
 
     
@@ -228,7 +93,7 @@ fn add_alignment_patterns(matrix: &mut Matrix, version: usize) {
     
 }
 
-fn add_timing_patterns(matrix: &mut Matrix) {
+fn add_timing_patterns(matrix: &mut QRCode) {
     let dimension = matrix.len();
 
     for i in 8..dimension - 8 {
@@ -238,7 +103,7 @@ fn add_timing_patterns(matrix: &mut Matrix) {
 }
 
 
-fn add_dark_module(matrix: &mut Matrix, version: usize) {
+fn add_dark_module(matrix: &mut QRCode, version: usize) {
 
     let x = 8;
     let y = 4 * version + 9;
@@ -247,7 +112,7 @@ fn add_dark_module(matrix: &mut Matrix, version: usize) {
     
 }
 
-fn add_reseverd_area(matrix: &mut Matrix, version: usize) {
+fn add_reseverd_area(matrix: &mut QRCode, version: usize) {
     add_reserverd_area(matrix);
     if version >= 7 {
         add_reserverd_area_v7_to_v40(matrix);
@@ -256,7 +121,7 @@ fn add_reseverd_area(matrix: &mut Matrix, version: usize) {
 }
 
 
-fn add_reserverd_area(matrix: &mut Matrix) {
+fn add_reserverd_area(matrix: &mut QRCode) {
     let dimension = matrix.len();
 
     // top left down
@@ -293,7 +158,7 @@ fn add_reserverd_area(matrix: &mut Matrix) {
 }
 
 
-fn add_reserverd_area_v7_to_v40(matrix: &mut Matrix) {
+fn add_reserverd_area_v7_to_v40(matrix: &mut QRCode) {
     let dimension = matrix.len();
 
     // down left up
@@ -315,7 +180,7 @@ fn add_reserverd_area_v7_to_v40(matrix: &mut Matrix) {
     }
 }
 
-fn add_data(matrix: &mut Matrix, data: Vec<bool>) -> Vec<(i32, i32)> {
+fn add_data(matrix: &mut QRCode, data: Vec<bool>) -> Vec<(i32, i32)> {
     let dimension = matrix.len() as i32;
     let mut visited = Vec::new();
 
@@ -365,9 +230,9 @@ fn add_data(matrix: &mut Matrix, data: Vec<bool>) -> Vec<(i32, i32)> {
 
 
 
-fn apply_mask(matrix: &mut Matrix, data_coordinates: Vec<(i32, i32)>) -> u32 {
+fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
     {
-        let results: Vec<(u32, i32, Matrix)> = (0..8)
+        let results: Vec<(u32, i32, QRCode)> = (0..8)
             .into_par_iter()
             .map(|i| {
                 let mut new_matrix = matrix.clone();
@@ -392,7 +257,7 @@ fn apply_mask(matrix: &mut Matrix, data_coordinates: Vec<(i32, i32)>) -> u32 {
     }
 }
 
-fn apply_mask_pattern(matrix: &mut Matrix, mask: u32, data_coordinates: &Vec<(i32, i32)>) {
+fn apply_mask_pattern(matrix: &mut QRCode, mask: u32, data_coordinates: &Vec<(i32, i32)>) {
     for (x, y) in data_coordinates.iter() {
         let i = *y as usize;
         let j = *x as usize;
@@ -442,7 +307,7 @@ fn apply_mask_pattern(matrix: &mut Matrix, mask: u32, data_coordinates: &Vec<(i3
     }
 }
 
-fn calculate_penalty(matrix: &Matrix) -> i32 {
+fn calculate_penalty(matrix: &QRCode) -> i32 {
     let mut penalty = 0;
 
     penalty += calculate_penalty_rule_1(matrix);
@@ -453,7 +318,7 @@ fn calculate_penalty(matrix: &Matrix) -> i32 {
     penalty
 }
 
-fn calculate_penalty_rule_1(matrix: &Matrix) -> i32 {
+fn calculate_penalty_rule_1(matrix: &QRCode) -> i32 {
     let mut penalty = 0;
 
     let dimension = matrix.len();
@@ -508,24 +373,99 @@ fn calculate_penalty_rule_1(matrix: &Matrix) -> i32 {
     
 }
 
-fn calculate_penalty_rule_2(matrix: &Matrix) -> i32 {
-    let boxes = matrix.count_boxes();
+fn calculate_penalty_rule_2(matrix: &QRCode) -> i32 {
+    let boxes = count_boxes(matrix);
 
     let penalty = boxes*3;
     penalty
+}
+
+fn count_boxes(matrix: &QRCode) -> i32 {
+    let dimension = matrix.len();
+    let mut count = 0;
+
+    for i in 0..dimension - 1 {
+        for j in 0..dimension - 1 {
+            if matrix.get(j, i) == matrix.get(j + 1, i) && matrix.get(j, i) == matrix.get(j, i + 1) && matrix.get(j, i) == matrix.get(j + 1, i + 1) {
+                count += 1;
+            }
+        }
+    }
+
+    count
+    
 }
 
 const PATTERN: [bool; 11] = [true, false, true, true, true, false, true, false, false, false, false];
 
 const REVERSED_PATTERN: [bool; 11] = [false, false, false, false, true, false, true, true, true, false, true];
 
-fn calculate_penalty_rule_3(matrix: &Matrix) -> i32 {
-    let penalty = (matrix.count_occurences(&PATTERN) + matrix.count_occurences(&REVERSED_PATTERN)) * 40;
+fn calculate_penalty_rule_3(matrix: &QRCode) -> i32 {
+    let penalty = count_occurences(matrix, &PATTERN) * 40 + count_occurences(matrix, &REVERSED_PATTERN) * 40;
 
     penalty
     
 }
-fn calculate_penalty_rule_4(matrix: &Matrix) -> i32 {
+
+
+fn count_occurences(matrix: &QRCode, pattern: &[bool; 11]) -> i32 {
+    // maybe use bit manipulation
+    let mut count = 0;
+    let dimension = matrix.len();
+
+    // Horizontal use && to check if it contains the pattern
+    for i in 0..dimension {
+        let mut current = 0;
+        let mut current_count = 0;
+
+        for j in 0..dimension {
+            if matrix.get(j, i) == pattern[current] {
+                current_count += 1;
+                current += 1;
+            } else {
+                current = 0;
+                current_count = 0;
+            }
+
+            if current_count == 11 {
+                count += 1;
+                current = 0;
+                current_count = 0;
+            }
+        }
+    }
+
+    // Vertical
+    for i in 0..dimension {
+        let mut current = 0;
+        let mut current_count = 0;
+
+        for j in 0..dimension {
+            if matrix.get(i, j) == pattern[current] {
+                current_count += 1;
+                current += 1;
+            } else {
+                current = 0;
+                current_count = 0;
+            }
+
+            if current_count == 11 {
+                count += 1;
+                current = 0;
+                current_count = 0;
+            }
+        }
+    }
+
+    count
+    
+    
+}
+
+
+
+
+fn calculate_penalty_rule_4(matrix: &QRCode) -> i32 {
     let mut dark_count = 0;
     let dimension = matrix.len();
 
@@ -556,7 +496,7 @@ fn calculate_penalty_rule_4(matrix: &Matrix) -> i32 {
 }
 
 
-fn apply_format_version_information(matrix: &mut Matrix, version: usize, error_correction: &str, mask: u32) {
+fn apply_format_version_information(matrix: &mut QRCode, version: usize, error_correction: &ErrorCorrection, mask: u32) {
 
     let dimension = matrix.len();
 
@@ -613,9 +553,7 @@ fn apply_format_version_information(matrix: &mut Matrix, version: usize, error_c
 }
 
 
-fn get_dimension(version: usize) -> usize {
-    (version - 1) * 4 + 21
-}
+
 
 fn get_alignment_location(version: usize) -> Vec<(usize, usize)> {
     let mut alignment_pattern = Vec::new();
@@ -647,13 +585,12 @@ const FORMAT_INFORMATION: [[&str; 8]; 4] = [
     ["001011010001001", "001001110111110", "001110011100111", "001100111010000", "000011101100010", "000001001010101", "000110100001100", "000100000111011"]
 ];
 
-fn get_format_information(error_correction: &str, mask: u32) -> Vec<bool> {
+fn get_format_information(error_correction: &ErrorCorrection, mask: u32) -> Vec<bool> {
     let ec_level = match error_correction {
-        "L" => 0,
-        "M" => 1,
-        "Q" => 2,
-        "H" => 3,
-        _ => panic!("Invalid error correction level"),
+        ErrorCorrection::L => 0,
+        ErrorCorrection::M => 1,
+        ErrorCorrection::Q => 2,
+        ErrorCorrection::H => 3,
     };
 
     let format_info = FORMAT_INFORMATION[ec_level][mask as usize];
