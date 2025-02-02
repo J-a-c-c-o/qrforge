@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 
 pub struct Matrix {
     matrix: Vec<bool>,
@@ -131,7 +132,7 @@ impl Matrix {
     
 }
 
-pub fn build_qr_matrix(version: usize, error_correction: &str, data: Vec<bool>) -> Matrix {
+pub async fn prepare_qr_matrix(version: usize) -> Matrix {
     let dimension = get_dimension(version);
 
     let mut matrix: Matrix = Matrix::new(dimension);
@@ -147,18 +148,16 @@ pub fn build_qr_matrix(version: usize, error_correction: &str, data: Vec<bool>) 
     add_dark_module(&mut matrix, version as usize);
 
     add_reseverd_area(&mut matrix, version as usize);
-
-    let data_coordinates = add_data(&mut matrix, data);
-
-    let mask = apply_mask(&mut matrix, data_coordinates);
-
-    apply_format_version_information(&mut matrix, version, error_correction, mask);
-
-
-
-    
     
     matrix
+}
+
+
+pub fn build_qr_matrix(matrix: &mut Matrix, version: usize, error_correction: &str, data: Vec<bool>) {
+    let data_coordinates = add_data(matrix, data);
+
+    let mask = apply_mask(matrix, data_coordinates);
+    apply_format_version_information(matrix, version, error_correction, mask);
 }
 
 
@@ -366,34 +365,31 @@ fn add_data(matrix: &mut Matrix, data: Vec<bool>) -> Vec<(i32, i32)> {
 
 
 
-
 fn apply_mask(matrix: &mut Matrix, data_coordinates: Vec<(i32, i32)>) -> u32 {
-    let mut mask = 0;
-    let mut min_penalty = 1 << 30;
+    {
+        let results: Vec<(u32, i32, Matrix)> = (0..8)
+            .into_par_iter()
+            .map(|i| {
+                let mut new_matrix = matrix.clone();
+                apply_mask_pattern(&mut new_matrix, i, &data_coordinates);
+                let penalty = calculate_penalty(&new_matrix);
+                (i, penalty, new_matrix)
+            })
+            .collect();
 
-    let mut temp = matrix.clone();
+        let (_, _, best_matrix) = results
+            .iter()
+            .min_by_key(|(_, penalty, _)| *penalty)
+            .unwrap();
 
-    for i in 0..8 {
-        let mut new_matrix = matrix.clone();
-        apply_mask_pattern(&mut new_matrix, i, &data_coordinates);
-
-        let penalty = calculate_penalty(&new_matrix);
-
-        if penalty < min_penalty {
-            min_penalty = penalty;
-            mask = i;
-            temp = new_matrix;
+        for i in 0..matrix.len() {
+            for j in 0..matrix.len() {
+                matrix.set(j, i, best_matrix.get(j, i));
+            }
         }
+
+        results.iter().min_by_key(|(_, penalty, _)| *penalty).unwrap().0
     }
-
-    for i in 0..matrix.len() {
-        for j in 0..matrix.len() {
-            matrix.set(j, i, temp.get(j, i));
-        }
-    }
-
-
-    mask
 }
 
 fn apply_mask_pattern(matrix: &mut Matrix, mask: u32, data_coordinates: &Vec<(i32, i32)>) {

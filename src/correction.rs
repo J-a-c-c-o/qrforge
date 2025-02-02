@@ -1,54 +1,61 @@
-pub fn correction(version: u32, error_correction: &str, combined_data: Vec<bool>) -> (Vec<Vec<Vec<bool>>>, Vec<Vec<Vec<bool>>>) {
+use rayon::prelude::*;
+use lazy_static::lazy_static;
 
+lazy_static! {
+    static ref GF_TABLES: ([u8; 256], [u8; 256]) = generate_gf_tables();
+}
+
+pub fn correction(version: u32, error_correction: &str, combined_data: Vec<bool>) 
+    -> (Vec<Vec<Vec<bool>>>, Vec<Vec<Vec<bool>>>) {
+    
     let blocks = split_into_blocks(combined_data, version, error_correction);
-
     let ec_codewords = ec_codewords(version, error_correction);
     
+    // Use pre-generated tables
+    let (antilog_table, log_table) = &*GF_TABLES;
+    
+    // Pre-generate generator polynomial once
+    let generator = generate_generator_polynomial(ec_codewords, log_table, antilog_table);
 
-    let mut ec_blocks: Vec<Vec<Vec<bool>>>= Vec::new();
+    // Process blocks in parallel
+    let ec_blocks: Vec<Vec<Vec<bool>>> = blocks
+        .par_iter()
+        .map(|block| {
+            let polynomial = build_polynomial(block);
+            let result = part0(ec_codewords, &generator, &polynomial, log_table, antilog_table);
 
-    let (antilog_table, log_table) = generate_gf_tables();
-
-    for i in 0..blocks.len() {
-        let polynomial = build_polynomial(blocks.get(i).unwrap().clone());
-        let generator = generate_generator_polynomial(ec_codewords, &log_table, &antilog_table);
-        let result = part0(ec_codewords, &generator, &polynomial, &log_table, &antilog_table);
-
-        let mut ec_block: Vec<Vec<bool>> = Vec::new();
-        for j in 0..result.len() {
-            let mut data: Vec<bool> = Vec::new();
-            for k in 0..8 {
-                data.push((result[j] & (1 << (7-k))) != 0);
-            }
-            ec_block.push(data);
-        }
-
-        ec_blocks.push(ec_block);
-    }
-
-
+            // Pre-allocate result vectors
+            result
+                .par_iter()
+                .map(|&code| {
+                    let mut data = Vec::with_capacity(8);
+                    (0..8).for_each(|k| {
+                        data.push((code & (1 << (7 - k))) != 0);
+                    });
+                    data
+                })
+                .collect()
+        })
+        .collect();
 
     (blocks, ec_blocks)
-
 }
 
-fn build_polynomial(data: Vec<Vec<bool>>) -> Vec<(u32,u32)> {
-    let mut polynomial: Vec<(u32,u32)> = Vec::new();
-    let size = data.len() as u32 - 1;
-    for i in 0..data.len() {
-        let mut value = 0;
-        for j in 0..data[i].len() {
-            if data[i][j] {
-                value += 2u32.pow(7-j as u32);
-            }
-
-        }
-        polynomial.push((value, size-i as u32));
+fn build_polynomial(data: &[Vec<bool>]) -> Vec<(u32,u32)> {
+    let mut polynomial = Vec::with_capacity(data.len());
+    let size = (data.len() - 1) as u32;
+    
+    for (i, byte) in data.iter().enumerate() {
+        let value = byte.iter()
+            .enumerate()
+            .fold(0, |acc, (j, &bit)| {
+                acc + if bit { 2u32.pow(7-j as u32) } else { 0 }
+            });
+        polynomial.push((value, size - i as u32));
     }
-
-
     polynomial
 }
+
 
 
 
@@ -208,9 +215,8 @@ fn generate_gf_tables() -> ([u8; 256], [u8; 256]) {
 }
 
 
-fn split_into_blocks(mut combined_data: Vec<bool>, version: u32, error_correction: &str) -> Vec<Vec<Vec<bool>>> {
+fn split_into_blocks(combined_data: Vec<bool>, version: u32, error_correction: &str) -> Vec<Vec<Vec<bool>>> {
 
-    
     let correction_level = match error_correction {
         "L" => 0,
         "M" => 1,
@@ -218,41 +224,29 @@ fn split_into_blocks(mut combined_data: Vec<bool>, version: u32, error_correctio
         "H" => 3,
         _ => 0,
     };
-
+    
     let block_lookup = BLOCK_LOOKUP[version as usize - 1][correction_level];
 
-    // group 1
-    let mut blocks: Vec<Vec<Vec<bool>>> = Vec::new();
     let group1_blocks = block_lookup[0] as usize;
     let group1_amount = block_lookup[1] as usize;
-
-    for _ in 0..group1_blocks {
-        let mut block: Vec<Vec<bool>> = Vec::new();
-        for _ in 0..group1_amount {
-            let mut data: Vec<bool> = Vec::new();
-            for _ in 0..8 {
-                data.push(combined_data.remove(0));
-            }
-
-            block.push(data);
-        }
-        blocks.push(block);
-    }
-    
-
     let group2_blocks = block_lookup[2] as usize;
     let group2_amount = block_lookup[3] as usize;
 
+    let codewords: Vec<Vec<bool>> = combined_data
+        .chunks(8)
+        .map(|c| c.to_vec())
+        .collect();
+
+    let mut blocks = Vec::new();
+    let mut offset = 0;
+
+    for _ in 0..group1_blocks {
+        blocks.push(codewords[offset..offset+group1_amount].to_vec());
+        offset += group1_amount;
+    }
     for _ in 0..group2_blocks {
-        let mut block: Vec<Vec<bool>> = Vec::new();
-        for _ in 0..group2_amount {
-            let mut data: Vec<bool> = Vec::new();
-            for _ in 0..8 {
-                data.push(combined_data.remove(0));
-            }
-            block.push(data);
-        }
-        blocks.push(block);
+        blocks.push(codewords[offset..offset+group2_amount].to_vec());
+        offset += group2_amount;
     }
 
     blocks
