@@ -1,4 +1,7 @@
+use std::{fs::File, io::Write};
+
 use image::{ImageBuffer, Rgba};
+use svg::{node::element::Rectangle, Document};
 
 use crate::{error::QRError, QRCode};
 
@@ -88,14 +91,11 @@ impl ImageQRCode {
         self
     }
 
-    pub fn build(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, QRError> {
+    pub fn build_image(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, QRError> {
         // if there are errors, return an empty image
         if !self.error.is_empty() {
             return Err(QRError::new("Invalid parameters"));
         }
-
-        
-
 
         let mut img = ImageBuffer::new(self.width as u32, self.height as u32);
         
@@ -137,6 +137,72 @@ impl ImageQRCode {
 
         Ok(img)
     }
+
+
+    pub fn build_image_file(&self, path: &str) -> Result<(), QRError> {
+        let img = self.build_image()?;
+        img.save(path).map_err(|e| QRError::new(&e.to_string()))?;
+        Ok(())
+    }
+
+
+    pub fn build_svg_bytes(&self) -> Result<Vec<u8>, QRError> {
+        if !self.error.is_empty() {
+            return Err(QRError::new("Invalid parameters"));
+        }
+
+        let pixel_size_width = (self.width - 2 * self.border) / self.qr_code.dimension();
+        let pixel_size_height = (self.height - 2 * self.border) / self.qr_code.dimension();
+        let pixel_size = std::cmp::min(pixel_size_width, pixel_size_height);
+
+        let border_width = (self.width - self.qr_code.dimension() * pixel_size) / 2;
+        let border_height = (self.height - self.qr_code.dimension() * pixel_size) / 2;
+
+        let mut document = Document::new()
+            .set("width", self.width.to_string())
+            .set("height", self.height.to_string())
+            .set("viewBox", format!("0 0 {} {}", self.width, self.height));
+
+        // Add background
+        let background = Rectangle::new()
+            .set("width", "100%")
+            .set("height", "100%")
+            .set("fill", format!("rgba({}, {}, {}, {})", 
+                self.border_color[0], 
+                self.border_color[1], 
+                self.border_color[2], 
+                self.border_color[3] as f32 / 255.0));
+        document = document.add(background);
+
+        // Add QR code modules
+        for y in 0..self.qr_code.dimension() {
+            for x in 0..self.qr_code.dimension() {
+                if self.qr_code.get(x, y) {
+                    let module = Rectangle::new()
+                        .set("x", x * pixel_size + border_width)
+                        .set("y", y * pixel_size + border_height)
+                        .set("width", pixel_size)
+                        .set("height", pixel_size)
+                        .set("fill", format!("rgba({}, {}, {}, {})",
+                            self.dark_color[0],
+                            self.dark_color[1],
+                            self.dark_color[2],
+                            self.dark_color[3] as f32 / 255.0));
+                    document = document.add(module);
+                }
+            }
+        }
+
+        Ok(document.to_string().into_bytes())
+    }
+
+    pub fn build_svg_file(&self, path: &str) -> Result<(), QRError> {
+        let svg_data = self.build_svg_bytes()?;
+        let mut file = File::create(path).map_err(|e| QRError::new(&e.to_string()))?;
+        file.write_all(&svg_data).map_err(|e| QRError::new(&e.to_string()))?;
+        Ok(())
+    }
+
 
     pub fn color(red: u8, green: u8, blue: u8, alpha: u8) -> Rgba<u8> {
         Rgba([red, green, blue, alpha])

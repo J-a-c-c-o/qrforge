@@ -1,10 +1,10 @@
 use crate::{ErrorCorrection, Mode};
 
-pub(crate) fn encode(version: usize, error_correction: &ErrorCorrection, mode: &Mode, text: &str) -> Vec<bool> {
+pub(crate) fn encode(version: usize, error_correction: &ErrorCorrection, mode: &Mode, bytes: &[u8]) -> Vec<bool> {
     let bit_count = get_bit_count(version, mode);
     let mode_indicator = get_mode(mode);
-    let size = get_size(text, bit_count);
-    let data = get_data(text, mode);
+    let size = get_size(bytes, bit_count);
+    let data = get_data(bytes, mode);
     let data_codewords = lookup_data_codewords(version, error_correction) * 8;
     build_combined_data(mode_indicator, size, data, data_codewords)
 }
@@ -100,8 +100,8 @@ fn get_mode(mode: &Mode) -> Vec<bool> {
     }
 }
 
-fn get_size(text: &str, bit_count: u32) -> Vec<bool> {
-    let size = text.len() as u32;
+fn get_size(bytes: &[u8], bit_count: u32) -> Vec<bool> {
+    let size = bytes.len() as u32;
     let mut size_bits = vec![];
     for i in 0..bit_count {
         size_bits.push((size >> (bit_count - i - 1)) & 1 == 1);
@@ -111,13 +111,13 @@ fn get_size(text: &str, bit_count: u32) -> Vec<bool> {
     size_bits
 }
 
-fn get_data(text: &str, mode: &Mode) -> Vec<bool> {
+fn get_data(bytes: &[u8], mode: &Mode) -> Vec<bool> {
     let mut data = vec![];
 
     match mode {
         Mode::Numeric => {
             // Split text into groups of 3
-            for chunk in text.chars().collect::<Vec<char>>().chunks(3) {
+            for chunk in bytes.chunks(3) {
                 let mut value = 0;
                 for (i, c) in chunk.iter().enumerate() {
                     value += (*c as u32 - '0' as u32) * 10u32.pow((chunk.len() - i - 1) as u32);
@@ -143,7 +143,7 @@ fn get_data(text: &str, mode: &Mode) -> Vec<bool> {
             }
         }
         Mode::Alphanumeric => {
-            let mut chars = text.chars();
+            let mut chars = bytes.iter().map(|&c| c as char);
             while let Some(c1) = chars.next() {
                 if chars.clone().count() == 0 {
                     let value = get_alphanumeric_index(c1);
@@ -159,14 +159,35 @@ fn get_data(text: &str, mode: &Mode) -> Vec<bool> {
             }
         }
         Mode::Byte => {
-            for byte in text.bytes() {
+            for byte in bytes {
                 for i in (0..8).rev() {
                     data.push((byte >> i) & 1 == 1);
                 }
             }
         }
         Mode::Kanji => {
-            // TODO: Implement kanji encoding
+            // Process Shift-JIS bytes in pairs
+            for chunk in bytes.chunks(2) {
+                if chunk.len() == 2 {
+                    // Convert two bytes to 13-bit value
+                    let mut value = ((chunk[0] as u16) << 8) | chunk[1] as u16;
+                    
+                    // Apply Shift-JIS conversion
+                    if (0x8140..=0x9FFC).contains(&value) {
+                        value -= 0x8140;
+                    } else if (0xE040..=0xEBBF).contains(&value) {
+                        value -= 0xC140;
+                    }
+                    
+                    // Convert to 13-bit format
+                    value = ((value >> 8) * 0xC0) + (value & 0xFF);
+                    
+                    // Add 13 bits to data
+                    for i in (0..13).rev() {
+                        data.push((value >> i) & 1 == 1);
+                    }
+                }
+            }
         }
     }
 

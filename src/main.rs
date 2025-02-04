@@ -16,7 +16,7 @@ pub struct QRCode {
 
 
 pub struct QRBuilder {
-    text: String,
+    bytes: Vec<u8>,
     version: Option<usize>,
     error_correction: Option<ErrorCorrection>,
     mode: Option<Mode>,
@@ -24,9 +24,9 @@ pub struct QRBuilder {
     
 
 impl QRBuilder {
-    pub fn new(text: &str) -> Self {
+    pub fn new(bytes: &[u8]) -> QRBuilder {
         QRBuilder {
-            text: text.to_string(),
+            bytes: bytes.to_vec(),
             version: None,
             error_correction: None,
             mode: None,
@@ -50,34 +50,34 @@ impl QRBuilder {
 
     pub fn build(self) -> Result<QRCode, QRError> {
         let error_correction = self.error_correction.unwrap_or(ErrorCorrection::M);
-        let mode = self.mode.unwrap_or_else(|| mode_selector::select_mode(&self.text));
+        let mode = self.mode.unwrap_or_else(|| mode_selector::select_mode(&self.bytes));
         let version = match self.version {
             Some(v) => v,
-            None => mode_selector::get_version(&self.text, &error_correction, &mode)?
+            None => mode_selector::get_version(&self.bytes, &error_correction, &mode)?
         };
 
-        QRCode::build(version, error_correction, mode, &self.text)
+        QRCode::build(version, error_correction, mode, &self.bytes)
     }
 }
 
 impl QRCode {
 
-    pub fn builder(text: &str) -> QRBuilder {
-        QRBuilder::new(text)
+    pub fn builder(bytes: &[u8]) -> QRBuilder {
+        QRBuilder::new(bytes)
     }
 
     pub fn image_builder(&self) -> image::ImageQRCode {
         image::ImageQRCode::new(self.clone())
     }
 
-    fn build(version: usize, error_correction: ErrorCorrection, mode: Mode, text: &str) -> Result<QRCode, QRError> {
+    fn build(version: usize, error_correction: ErrorCorrection, mode: Mode, bytes: &[u8]) -> Result<QRCode, QRError> {
         let dimension = Self::calculate_dimension(version);
 
         let capacity = match mode {
-            Mode::Numeric => text.len() * 3 / 10,
-            Mode::Alphanumeric => text.len() * 2 / 5,
-            Mode::Byte => text.len(),
-            Mode::Kanji => text.len() / 2,
+            Mode::Numeric => bytes.len() * 3 / 10,
+            Mode::Alphanumeric => bytes.len() * 2 / 5,
+            Mode::Byte => bytes.len(),
+            Mode::Kanji => bytes.len() / 2,
         };
 
         if capacity > mode_selector::get_capacity(version, &error_correction, &mode) {
@@ -90,7 +90,7 @@ impl QRCode {
             dimension,
         };
 
-        let combined_data = encode::encode(version, &error_correction, &mode, text);
+        let combined_data = encode::encode(version, &error_correction, &mode, bytes);
         let (blocks, ec_blocks) = correction::correction(version, &error_correction, combined_data);
         let result = interleave::interleave(blocks, ec_blocks, version);
 
@@ -210,21 +210,31 @@ impl ErrorCorrection {
 
 
 fn main() -> Result<(), QRError> {
-
     let start = std::time::Instant::now();
-    let qr_code = QRCode::builder("HELLO WORLD")
-    .error_correction(ErrorCorrection::H)
-    .mode(Mode::Byte)
-    .version(5)
-    .build()?
-    .image_builder()
-    .set_width(100)
-    .set_height(100)
-    .set_border(10)
-    .build()?.save("hello_world.png");
-    println!("Time: {:?}", start.elapsed());
-
-    Ok(()) 
     
+    // Japanese text "こんにちは" (Hello) in Shift-JIS encoding;
+    let kanji = vec![
+        0x82, 0xB1, // こ
+        0x82, 0xF1, // ん
+        0x82, 0xC9, // に
+        0x82, 0xBF, // ち
+        0x82, 0xCD  // は
+    ];
+
+
+    let qr_code = QRCode::builder(&kanji)
+        .error_correction(ErrorCorrection::H)
+        .mode(Mode::Kanji)
+        .version(5)
+        .build()?
+        .image_builder()
+        .set_width(200)
+        .set_height(200)
+        .set_border(4)
+        .build_svg_file("hello_japanese.svg")?;
+
+    println!("QR Code generated in: {:?}", start.elapsed());
+
+    Ok(())
 }
 

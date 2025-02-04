@@ -1,9 +1,9 @@
 use crate::{QRError, ErrorCorrection, Mode};
 
-pub(crate) fn select_mode(data: &str) -> Mode {
-    if data.chars().all(|c| c.is_numeric()) {
+pub(crate) fn select_mode(data: &[u8]) -> Mode {
+    if data.iter().all(|&c| c >= b'0' && c <= b'9') {
         Mode::Numeric
-    } else if data.chars().all(|c| ALPHANUMERIC.contains(&c)) {
+    } else if data.iter().all(|&c| ALPHANUMERIC.contains(&(c as char))) {
         Mode::Alphanumeric
     } else {
         Mode::Byte
@@ -19,7 +19,7 @@ const ALPHANUMERIC: [char; 45] = [
 ];
 
 
-pub(crate) fn get_version(data: &str, error_correction: &ErrorCorrection, mode: &Mode) -> Result<usize, QRError> {
+pub(crate) fn get_version(data: &[u8], error_correction: &ErrorCorrection, mode: &Mode) -> Result<usize, QRError> {
     for i in 1..=40 {
         if get_capacity(i, error_correction, mode) >= data.len() {
             return Ok(i);
