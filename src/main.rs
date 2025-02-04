@@ -14,19 +14,17 @@ pub struct QRCode {
 }
 
 pub struct QRBuilder {
-    bytes: Vec<u8>,
     version: Option<usize>,
     error_correction: Option<ErrorCorrection>,
-    mode: Option<Mode>,
+    segments: Vec<(Mode, Vec<u8>)>,
 }
 
 impl QRBuilder {
-    pub fn new(bytes: &[u8]) -> QRBuilder {
+    pub fn new() -> QRBuilder {
         QRBuilder {
-            bytes: bytes.to_vec(),
             version: None,
             error_correction: None,
-            mode: None,
+            segments: vec![],
         }
     }
 
@@ -40,28 +38,33 @@ impl QRBuilder {
         self
     }
 
-    pub fn mode(mut self, mode: Mode) -> Self {
-        self.mode = Some(mode);
+    pub fn add_segment(mut self, mode: Option<Mode>, bytes: &[u8]) -> Self {
+        if mode.is_some() {
+            self.segments.push((mode.unwrap(), bytes.to_vec()));
+        } else {
+            self.segments.push((mode_selector::select_mode(&bytes), bytes.to_vec()));
+            // self.segments.push((Mode::Byte, bytes.to_vec()));
+        }
         self
     }
 
+
     pub fn build(self) -> Result<QRCode, QRError> {
         let error_correction = self.error_correction.unwrap_or(ErrorCorrection::M);
-        let mode = self
-            .mode
-            .unwrap_or_else(|| mode_selector::select_mode(&self.bytes));
+
         let version = match self.version {
             Some(v) => v,
-            None => mode_selector::get_version(&self.bytes, &error_correction, &mode)?,
+            // None => mode_selector::get_version(&self.segments, &error_correction)?,
+            None => 5,
         };
 
-        QRCode::build(version, error_correction, mode, &self.bytes)
+        QRCode::build(version, error_correction, &self.segments)
     }
 }
 
 impl QRCode {
-    pub fn builder(bytes: &[u8]) -> QRBuilder {
-        QRBuilder::new(bytes)
+    pub fn builder() -> QRBuilder {
+        QRBuilder::new()
     }
 
     pub fn image_builder(&self) -> image::ImageQRCode {
@@ -71,21 +74,10 @@ impl QRCode {
     fn build(
         version: usize,
         error_correction: ErrorCorrection,
-        mode: Mode,
-        bytes: &[u8],
+        segments: &[(Mode, Vec<u8>)],
     ) -> Result<QRCode, QRError> {
         let dimension = Self::calculate_dimension(version);
 
-        let capacity = match mode {
-            Mode::Numeric => bytes.len() * 3 / 10,
-            Mode::Alphanumeric => bytes.len() * 2 / 5,
-            Mode::Byte => bytes.len(),
-            Mode::Kanji => bytes.len() / 2,
-        };
-
-        if capacity > mode_selector::get_capacity(version, &error_correction, &mode) {
-            return Err(QRError::new("Data is too long"));
-        }
 
         let mut matrix = QRCode {
             matrix: vec![false; dimension * dimension],
@@ -93,7 +85,24 @@ impl QRCode {
             dimension,
         };
 
-        let combined_data = encode::encode(version, &error_correction, &mode, bytes);
+        let mut combined_data = vec![];
+
+        for (mode, bytes) in segments {
+            match mode {
+                Mode::ECI(_) => {
+                    combined_data.extend_from_slice(&encode::encode_segment(version, mode, &[]));
+                    combined_data.extend_from_slice(&encode::encode_segment(version, &Mode::Byte, bytes));
+                }
+                _ => {
+                    combined_data.extend_from_slice(&encode::encode_segment(version, mode, bytes));
+                }
+            }
+        }
+
+        let combined_data = encode::build_combined_data(combined_data, version, &error_correction)?;
+
+    
+        
         let (blocks, ec_blocks) = correction::correction(version, &error_correction, combined_data);
         let result = interleave::interleave(blocks, ec_blocks, version);
 
@@ -151,11 +160,12 @@ impl QRCode {
     }
 }
 
-enum Mode {
+pub enum Mode {
     Numeric,
     Alphanumeric,
     Byte,
     Kanji,
+    ECI(usize),
 }
 
 impl Mode {
@@ -165,6 +175,7 @@ impl Mode {
             1 => Mode::Alphanumeric,
             2 => Mode::Byte,
             3 => Mode::Kanji,
+            4 => Mode::ECI(0),
             _ => panic!("Invalid mode"),
         }
     }
@@ -175,11 +186,12 @@ impl Mode {
             Mode::Alphanumeric => 1,
             Mode::Byte => 2,
             Mode::Kanji => 3,
+            Mode::ECI(_) => 4,
         }
     }
 }
 
-enum ErrorCorrection {
+pub enum ErrorCorrection {
     L,
     M,
     Q,
@@ -212,11 +224,17 @@ fn main() -> Result<(), QRError> {
 
     // Japanese text "こんにちは" (Hello) in Shift-JIS encoding;
     let kanji = vec![0x93, 0xfa, 0x96, 0x7b, 0x82, 0xcc, 0x82, 0xc1, 0x82, 0xbd];
+    let utf8: Vec<u8> = vec![255, 61];
+    let bytes = b" Hello";
 
-    let qr_code = QRCode::builder(&kanji)
+    let _qr_code = QRCode::builder()
+        .add_segment(Some(Mode::Kanji), &kanji)
+        .add_segment(None, bytes)
+        .add_segment(Some(Mode::Alphanumeric), b"HELLO ")
+        .add_segment(Some(Mode::Numeric), b"123456")
+        .add_segment(Some(Mode::ECI(3)), &utf8)
         .error_correction(ErrorCorrection::H)
-        .mode(Mode::Kanji)
-        .version(5)
+        .version(4)
         .build()?
         .image_builder()
         .set_width(200)

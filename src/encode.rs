@@ -1,8 +1,7 @@
-use crate::{ErrorCorrection, Mode};
+use crate::{error::QRError, ErrorCorrection, Mode};
 
-pub(crate) fn encode(
+pub(crate) fn encode_segment (
     version: usize,
-    error_correction: &ErrorCorrection,
     mode: &Mode,
     bytes: &[u8],
 ) -> Vec<bool> {
@@ -10,8 +9,7 @@ pub(crate) fn encode(
     let mode_indicator = get_mode(mode);
     let size = get_size(bytes, bit_count, mode);
     let data = get_data(bytes, mode);
-    let data_codewords = lookup_data_codewords(version, error_correction) * 8;
-    build_combined_data(mode_indicator, size, data, data_codewords)
+    build_segment(mode_indicator, size, data)
 }
 
 // remaining bits 11101100 00010001
@@ -20,19 +18,24 @@ const REMAINDER_BITS: [[bool; 8]; 2] = [
     [false, false, false, true, false, false, false, true],
 ];
 
-fn build_combined_data(
-    mode_indicator: Vec<bool>,
-    size: Vec<bool>,
+pub(crate) fn build_combined_data(
     data: Vec<bool>,
-    data_codewords: u32,
-) -> Vec<bool> {
+    version: usize,
+    error_correction: &ErrorCorrection,
+) -> Result<Vec<bool>, QRError> {
     let mut combined_data = vec![];
+    
+    let data_codewords = lookup_data_codewords(version, error_correction) * 8;
 
-    // Add mode indicator
-    combined_data.extend_from_slice(&mode_indicator);
+    if data_codewords == 0 {
+        return Err(QRError::new("Invalid version"));
+    }
 
-    // Add size
-    combined_data.extend_from_slice(&size);
+    if data.len() > data_codewords as usize {
+        return Err(QRError::new("Data too large"));
+    }
+
+
 
     // Add data
     combined_data.extend_from_slice(&data);
@@ -56,8 +59,24 @@ fn build_combined_data(
     for i in 0..remainding_bytes {
         combined_data.extend_from_slice(&REMAINDER_BITS[i % 2]);
     }
+    
+    Ok(combined_data)
+}
 
-    combined_data
+fn build_segment(mode_indicator: Vec<bool>, size: Vec<bool>, data: Vec<bool>) -> Vec<bool> {
+    let mut segment = vec![];
+
+    // Add mode indicator
+    segment.extend_from_slice(&mode_indicator);
+
+    // Add size
+    segment.extend_from_slice(&size);
+
+    // Add data
+    segment.extend_from_slice(&data);
+
+
+    segment
 }
 
 fn get_bit_count(version: usize, mode: &Mode) -> u32 {
@@ -86,6 +105,12 @@ fn get_bit_count(version: usize, mode: &Mode) -> u32 {
             27..=40 => 12,
             _ => 0,
         },
+        Mode::ECI(mode) => match mode {
+            0..=127 => 8,
+            128..=16383 => 16,
+            16384..=999999 => 24,
+            _ => 0,
+        },
     }
 }
 
@@ -95,6 +120,7 @@ fn get_mode(mode: &Mode) -> Vec<bool> {
         Mode::Alphanumeric => vec![false, false, true, false],
         Mode::Byte => vec![false, true, false, false],
         Mode::Kanji => vec![true, false, false, false],
+        Mode::ECI(_) => vec![false, true, true, true],
     }
 }
 
@@ -105,6 +131,13 @@ fn get_size(bytes: &[u8], bit_count: u32, mode: &Mode) -> Vec<bool> {
             let mut size_bits = vec![];
             for i in 0..bit_count {
                 size_bits.push((size >> (bit_count - i - 1)) & 1 == 1);
+            }
+            size_bits
+        }
+        Mode::ECI(mode) => {
+            let mut size_bits = vec![];
+            for i in 0..bit_count {
+                size_bits.push((mode >> (bit_count - i - 1)) & 1 == 1);
             }
             size_bits
         }
@@ -197,6 +230,9 @@ fn get_data(bytes: &[u8], mode: &Mode) -> Vec<bool> {
                     }
                 }
             }
+        }
+        Mode::ECI(_) => {
+            
         }
     }
 
