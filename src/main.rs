@@ -4,7 +4,9 @@ mod matrix_builder;
 mod interleave;
 mod mode_selector;
 mod error;
-use error::Error;
+use error::QRError;
+use image::ImageQRCode;
+mod image;
 
 pub struct QRCode {
     matrix: Vec<bool>,
@@ -19,6 +21,7 @@ pub struct QRBuilder {
     error_correction: Option<ErrorCorrection>,
     mode: Option<Mode>,
 }
+    
 
 impl QRBuilder {
     pub fn new(text: &str) -> Self {
@@ -45,7 +48,7 @@ impl QRBuilder {
         self
     }
 
-    pub fn build(self) -> Result<QRCode, Error> {
+    pub fn build(self) -> Result<QRCode, QRError> {
         let error_correction = self.error_correction.unwrap_or(ErrorCorrection::M);
         let mode = self.mode.unwrap_or_else(|| mode_selector::select_mode(&self.text));
         let version = match self.version {
@@ -63,7 +66,11 @@ impl QRCode {
         QRBuilder::new(text)
     }
 
-    fn build(version: usize, error_correction: ErrorCorrection, mode: Mode, text: &str) -> Result<QRCode, Error> {
+    pub fn image_builder(&self) -> image::ImageQRCode {
+        image::ImageQRCode::new(self.clone())
+    }
+
+    fn build(version: usize, error_correction: ErrorCorrection, mode: Mode, text: &str) -> Result<QRCode, QRError> {
         let dimension = Self::calculate_dimension(version);
 
         let capacity = match mode {
@@ -74,7 +81,7 @@ impl QRCode {
         };
 
         if capacity > mode_selector::get_capacity(version, &error_correction, &mode) {
-            return Err(Error::new("Data is too long"));
+            return Err(QRError::new("Data is too long"));
         }
 
         let mut matrix = QRCode {
@@ -202,15 +209,19 @@ impl ErrorCorrection {
 
 
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), QRError> {
 
     let start = std::time::Instant::now();
-    QRCode::builder("HELLO WORLD")
+    let qr_code = QRCode::builder("HELLO WORLD")
     .error_correction(ErrorCorrection::H)
     .mode(Mode::Byte)
     .version(5)
-    .build()?.print();
-
+    .build()?
+    .image_builder()
+    .set_width(100)
+    .set_height(100)
+    .set_border(10)
+    .build()?.save("hello_world.png");
     println!("Time: {:?}", start.elapsed());
 
     Ok(()) 

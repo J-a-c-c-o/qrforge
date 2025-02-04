@@ -1,4 +1,4 @@
-use crate::{Error, ErrorCorrection, Mode};
+use crate::{QRError, ErrorCorrection, Mode};
 
 pub(crate) fn select_mode(data: &str) -> Mode {
     if data.chars().all(|c| c.is_numeric()) {
@@ -19,13 +19,13 @@ const ALPHANUMERIC: [char; 45] = [
 ];
 
 
-pub(crate) fn get_version(data: &str, error_correction: &ErrorCorrection, mode: &Mode) -> Result<usize, Error> {
+pub(crate) fn get_version(data: &str, error_correction: &ErrorCorrection, mode: &Mode) -> Result<usize, QRError> {
     for i in 1..=40 {
         if get_capacity(i, error_correction, mode) >= data.len() {
             return Ok(i);
         }
     }
-    Err(Error::new("Data too long"))
+    Err(QRError::new("Data too long"))
 }
 
 
