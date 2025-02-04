@@ -1,12 +1,12 @@
-use rayon::prelude::*;
 use crate::{ErrorCorrection, QRCode};
+use rayon::prelude::*;
 
-
-
-
-pub(crate) fn build_qr_matrix(matrix: &mut QRCode, version: usize, error_correction: &ErrorCorrection, data: Vec<bool>) {
-
-
+pub(crate) fn build_qr_matrix(
+    matrix: &mut QRCode,
+    version: usize,
+    error_correction: &ErrorCorrection,
+    data: Vec<bool>,
+) {
     add_finder_patterns(matrix);
 
     add_seperators(matrix);
@@ -25,7 +25,6 @@ pub(crate) fn build_qr_matrix(matrix: &mut QRCode, version: usize, error_correct
     apply_format_version_information(matrix, version, error_correction, mask);
 }
 
-
 const FINDER_PATTERN: [[bool; 7]; 7] = [
     [true, true, true, true, true, true, true],
     [true, false, false, false, false, false, true],
@@ -37,8 +36,6 @@ const FINDER_PATTERN: [[bool; 7]; 7] = [
 ];
 
 fn add_finder_patterns(matrix: &mut QRCode) {
-    
-
     let dimension = matrix.dimension();
 
     for i in 0..7 {
@@ -63,7 +60,6 @@ fn add_seperators(matrix: &mut QRCode) {
     }
 }
 
-
 const ALIGNMENT_PATTERN: [[bool; 5]; 5] = [
     [true, true, true, true, true],
     [true, false, false, false, true],
@@ -75,9 +71,8 @@ const ALIGNMENT_PATTERN: [[bool; 5]; 5] = [
 fn add_alignment_patterns(matrix: &mut QRCode, version: usize) {
     let alignment_location = get_alignment_location(version);
 
-    
-
-    for (x, y) in alignment_location { // center
+    for (x, y) in alignment_location {
+        // center
 
         if matrix.get(x, y) {
             continue;
@@ -89,8 +84,6 @@ fn add_alignment_patterns(matrix: &mut QRCode, version: usize) {
             }
         }
     }
-
-    
 }
 
 fn add_timing_patterns(matrix: &mut QRCode) {
@@ -102,14 +95,11 @@ fn add_timing_patterns(matrix: &mut QRCode) {
     }
 }
 
-
 fn add_dark_module(matrix: &mut QRCode, version: usize) {
-
     let x = 8;
     let y = 4 * version + 9;
-    
+
     matrix.set(x, y, true);
-    
 }
 
 fn add_reseverd_area(matrix: &mut QRCode, version: usize) {
@@ -117,16 +107,13 @@ fn add_reseverd_area(matrix: &mut QRCode, version: usize) {
     if version >= 7 {
         add_reserverd_area_v7_to_v40(matrix);
     }
-    
 }
-
 
 fn add_reserverd_area(matrix: &mut QRCode) {
     let dimension = matrix.dimension();
 
     // top left down
     for i in 0..9 {
-
         if matrix.is_empty(8, i) {
             matrix.set(8, i, false);
         }
@@ -134,7 +121,6 @@ fn add_reserverd_area(matrix: &mut QRCode) {
 
     // top left right
     for i in 0..8 {
-
         if matrix.is_empty(i, 8) {
             matrix.set(i, 8, false);
         }
@@ -142,7 +128,6 @@ fn add_reserverd_area(matrix: &mut QRCode) {
 
     // down left down
     for i in 0..7 {
-
         if matrix.is_empty(8, dimension - 7 + i) {
             matrix.set(8, dimension - 7 + i, false);
         }
@@ -150,13 +135,11 @@ fn add_reserverd_area(matrix: &mut QRCode) {
 
     // up right right
     for i in 0..8 {
-
         if matrix.is_empty(dimension - 8 + i, 8) {
             matrix.set(dimension - 8 + i, 8, false);
         }
     }
 }
-
 
 fn add_reserverd_area_v7_to_v40(matrix: &mut QRCode) {
     let dimension = matrix.dimension();
@@ -222,13 +205,10 @@ fn add_data(matrix: &mut QRCode, data: Vec<bool>) -> Vec<(i32, i32)> {
             current.0 -= 2;
             direction = !direction;
         }
-        
     }
 
     visited
 }
-
-
 
 fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
     {
@@ -253,7 +233,11 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
             }
         }
 
-        results.iter().min_by_key(|(_, penalty, _)| *penalty).unwrap().0
+        results
+            .iter()
+            .min_by_key(|(_, penalty, _)| *penalty)
+            .unwrap()
+            .0
     }
 }
 
@@ -266,43 +250,43 @@ fn apply_mask_pattern(matrix: &mut QRCode, mask: u32, data_coordinates: &Vec<(i3
                 if (i + j) % 2 == 0 {
                     matrix.set(j, i, !matrix.get(j, i));
                 }
-            },
+            }
             1 => {
                 if i % 2 == 0 {
                     matrix.set(j, i, !matrix.get(j, i));
                 }
-            },
+            }
             2 => {
                 if j % 3 == 0 {
                     matrix.set(j, i, !matrix.get(j, i));
                 }
-            },
+            }
             3 => {
                 if (i + j) % 3 == 0 {
                     matrix.set(j, i, !matrix.get(j, i));
                 }
-            },
+            }
             4 => {
                 if (i / 2 + j / 3) % 2 == 0 {
                     matrix.set(j, i, !matrix.get(j, i));
                 }
-            },
+            }
             5 => {
                 if (i * j) % 2 + (i * j) % 3 == 0 {
                     matrix.set(j, i, !matrix.get(j, i));
                 }
-            },
+            }
             6 => {
                 if ((i * j) % 2 + (i * j) % 3) % 2 == 0 {
                     matrix.set(j, i, !matrix.get(j, i));
                 }
-            },
+            }
             7 => {
                 if (((i + j) % 2) + ((i * j) % 3)) % 2 == 0 {
                     matrix.set(j, i, !matrix.get(j, i));
                 }
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 }
@@ -370,13 +354,12 @@ fn calculate_penalty_rule_1(matrix: &QRCode) -> i32 {
     }
 
     penalty
-    
 }
 
 fn calculate_penalty_rule_2(matrix: &QRCode) -> i32 {
     let boxes = count_boxes(matrix);
 
-    let penalty = boxes*3;
+    let penalty = boxes * 3;
     penalty
 }
 
@@ -386,27 +369,32 @@ fn count_boxes(matrix: &QRCode) -> i32 {
 
     for i in 0..dimension - 1 {
         for j in 0..dimension - 1 {
-            if matrix.get(j, i) == matrix.get(j + 1, i) && matrix.get(j, i) == matrix.get(j, i + 1) && matrix.get(j, i) == matrix.get(j + 1, i + 1) {
+            if matrix.get(j, i) == matrix.get(j + 1, i)
+                && matrix.get(j, i) == matrix.get(j, i + 1)
+                && matrix.get(j, i) == matrix.get(j + 1, i + 1)
+            {
                 count += 1;
             }
         }
     }
 
     count
-    
 }
 
-const PATTERN: [bool; 11] = [true, false, true, true, true, false, true, false, false, false, false];
+const PATTERN: [bool; 11] = [
+    true, false, true, true, true, false, true, false, false, false, false,
+];
 
-const REVERSED_PATTERN: [bool; 11] = [false, false, false, false, true, false, true, true, true, false, true];
+const REVERSED_PATTERN: [bool; 11] = [
+    false, false, false, false, true, false, true, true, true, false, true,
+];
 
 fn calculate_penalty_rule_3(matrix: &QRCode) -> i32 {
-    let penalty = count_occurences(matrix, &PATTERN) * 40 + count_occurences(matrix, &REVERSED_PATTERN) * 40;
+    let penalty =
+        count_occurences(matrix, &PATTERN) * 40 + count_occurences(matrix, &REVERSED_PATTERN) * 40;
 
     penalty
-    
 }
-
 
 fn count_occurences(matrix: &QRCode, pattern: &[bool; 11]) -> i32 {
     // maybe use bit manipulation
@@ -458,12 +446,7 @@ fn count_occurences(matrix: &QRCode, pattern: &[bool; 11]) -> i32 {
     }
 
     count
-    
-    
 }
-
-
-
 
 fn calculate_penalty_rule_4(matrix: &QRCode) -> i32 {
     let mut dark_count = 0;
@@ -491,13 +474,14 @@ fn calculate_penalty_rule_4(matrix: &QRCode) -> i32 {
     } else {
         penalty_lower * 10
     }
-
-    
 }
 
-
-fn apply_format_version_information(matrix: &mut QRCode, version: usize, error_correction: &ErrorCorrection, mask: u32) {
-
+fn apply_format_version_information(
+    matrix: &mut QRCode,
+    version: usize,
+    error_correction: &ErrorCorrection,
+    mask: u32,
+) {
     let dimension = matrix.dimension();
 
     if version >= 7 {
@@ -506,14 +490,20 @@ fn apply_format_version_information(matrix: &mut QRCode, version: usize, error_c
 
         for i in 0..6 {
             for j in 0..3 {
-                matrix.set(dimension - 11 + 2 - j, 5 - i, version_information[version_information_index]);
-                matrix.set(5 - i, dimension - 11 + 2 - j, version_information[version_information_index]);
+                matrix.set(
+                    dimension - 11 + 2 - j,
+                    5 - i,
+                    version_information[version_information_index],
+                );
+                matrix.set(
+                    5 - i,
+                    dimension - 11 + 2 - j,
+                    version_information[version_information_index],
+                );
 
                 version_information_index += 1;
             }
         }
-
-        
     }
     let format_information_string = get_format_information(error_correction, mask);
 
@@ -529,7 +519,11 @@ fn apply_format_version_information(matrix: &mut QRCode, version: usize, error_c
 
     for i in 0..8 {
         if (7 - i) != 6 {
-            matrix.set(8, 7 - i, format_information_string[format_information_index]);
+            matrix.set(
+                8,
+                7 - i,
+                format_information_string[format_information_index],
+            );
             format_information_index += 1;
         }
     }
@@ -538,22 +532,23 @@ fn apply_format_version_information(matrix: &mut QRCode, version: usize, error_c
     format_information_index = 0;
 
     for i in 0..7 {
-        matrix.set(8, dimension - 1 - i, format_information_string[format_information_index]);
+        matrix.set(
+            8,
+            dimension - 1 - i,
+            format_information_string[format_information_index],
+        );
         format_information_index += 1;
     }
 
     for i in 0..8 {
-        matrix.set(dimension - 8 + i, 8, format_information_string[format_information_index]);
+        matrix.set(
+            dimension - 8 + i,
+            8,
+            format_information_string[format_information_index],
+        );
         format_information_index += 1;
     }
-
-
-
-    
 }
-
-
-
 
 fn get_alignment_location(version: usize) -> Vec<(usize, usize)> {
     let mut alignment_pattern = Vec::new();
@@ -564,7 +559,10 @@ fn get_alignment_location(version: usize) -> Vec<(usize, usize)> {
 
     for i in 0..ALIGNMENT_PATTERN_LOCATION[version - 2].len() {
         for j in 0..ALIGNMENT_PATTERN_LOCATION[version - 2].len() {
-            alignment_pattern.push((ALIGNMENT_PATTERN_LOCATION[version - 2][i], ALIGNMENT_PATTERN_LOCATION[version - 2][j]));
+            alignment_pattern.push((
+                ALIGNMENT_PATTERN_LOCATION[version - 2][i],
+                ALIGNMENT_PATTERN_LOCATION[version - 2][j],
+            ));
         }
     }
 
@@ -572,24 +570,95 @@ fn get_alignment_location(version: usize) -> Vec<(usize, usize)> {
 }
 
 const ALIGNMENT_PATTERN_LOCATION: [&[usize]; 39] = [
-    &[6, 18], &[6, 22], &[6, 26], &[6, 30], &[6, 34], &[6, 22, 38], &[6, 24, 42], &[6, 26, 46], &[6, 28, 50], &[6, 30, 54],
-    &[6, 32, 58], &[6, 34, 62], &[6, 26, 46, 66], &[6, 26, 48, 70], &[6, 26, 50, 74], &[6, 30, 54, 78], &[6, 30, 56, 82], &[6, 30, 58, 86], &[6, 34, 62, 90], &[6, 28, 50, 72, 94],
-    &[6, 26, 50, 74, 98], &[6, 30, 54, 78, 102], &[6, 28, 54, 80, 106], &[6, 32, 58, 84, 110], &[6, 30, 58, 86, 114], &[6, 34, 62, 90, 118], &[6, 26, 50, 74, 98, 122], &[6, 30, 54, 78, 102, 126], &[6, 26, 52, 78, 104, 130], &[6, 30, 56, 82, 108, 134],
-    &[6, 34, 60, 86, 112, 138], &[6, 30, 58, 86, 114, 142], &[6, 34, 62, 90, 118, 146], &[6, 30, 54, 78, 102, 126, 150], &[6, 24, 50, 76, 102, 128, 154], &[6, 28, 54, 80, 106, 132, 158], &[6, 32, 58, 84, 110, 136, 162], &[6, 26, 54, 82, 110, 138, 166], &[6, 30, 58, 86, 114, 142, 170]
+    &[6, 18],
+    &[6, 22],
+    &[6, 26],
+    &[6, 30],
+    &[6, 34],
+    &[6, 22, 38],
+    &[6, 24, 42],
+    &[6, 26, 46],
+    &[6, 28, 50],
+    &[6, 30, 54],
+    &[6, 32, 58],
+    &[6, 34, 62],
+    &[6, 26, 46, 66],
+    &[6, 26, 48, 70],
+    &[6, 26, 50, 74],
+    &[6, 30, 54, 78],
+    &[6, 30, 56, 82],
+    &[6, 30, 58, 86],
+    &[6, 34, 62, 90],
+    &[6, 28, 50, 72, 94],
+    &[6, 26, 50, 74, 98],
+    &[6, 30, 54, 78, 102],
+    &[6, 28, 54, 80, 106],
+    &[6, 32, 58, 84, 110],
+    &[6, 30, 58, 86, 114],
+    &[6, 34, 62, 90, 118],
+    &[6, 26, 50, 74, 98, 122],
+    &[6, 30, 54, 78, 102, 126],
+    &[6, 26, 52, 78, 104, 130],
+    &[6, 30, 56, 82, 108, 134],
+    &[6, 34, 60, 86, 112, 138],
+    &[6, 30, 58, 86, 114, 142],
+    &[6, 34, 62, 90, 118, 146],
+    &[6, 30, 54, 78, 102, 126, 150],
+    &[6, 24, 50, 76, 102, 128, 154],
+    &[6, 28, 54, 80, 106, 132, 158],
+    &[6, 32, 58, 84, 110, 136, 162],
+    &[6, 26, 54, 82, 110, 138, 166],
+    &[6, 30, 58, 86, 114, 142, 170],
 ];
 
 const FORMAT_INFORMATION: [[&str; 8]; 4] = [
-    ["111011111000100", "111001011110011", "111110110101010", "111100010011101", "110011000101111", "110001100011000", "110110001000001", "110100101110110"],
-    ["101010000010010", "101000100100101", "101111001111100", "101101101001011", "100010111111001", "100000011001110", "100111110010111", "100101010100000"],
-    ["011010101011111", "011000001101000", "011111100110001", "011101000000110", "010010010110100", "010000110000011", "010111011011010", "010101111101101"],
-    ["001011010001001", "001001110111110", "001110011100111", "001100111010000", "000011101100010", "000001001010101", "000110100001100", "000100000111011"]
+    [
+        "111011111000100",
+        "111001011110011",
+        "111110110101010",
+        "111100010011101",
+        "110011000101111",
+        "110001100011000",
+        "110110001000001",
+        "110100101110110",
+    ],
+    [
+        "101010000010010",
+        "101000100100101",
+        "101111001111100",
+        "101101101001011",
+        "100010111111001",
+        "100000011001110",
+        "100111110010111",
+        "100101010100000",
+    ],
+    [
+        "011010101011111",
+        "011000001101000",
+        "011111100110001",
+        "011101000000110",
+        "010010010110100",
+        "010000110000011",
+        "010111011011010",
+        "010101111101101",
+    ],
+    [
+        "001011010001001",
+        "001001110111110",
+        "001110011100111",
+        "001100111010000",
+        "000011101100010",
+        "000001001010101",
+        "000110100001100",
+        "000100000111011",
+    ],
 ];
 
 fn get_format_information(error_correction: &ErrorCorrection, mask: u32) -> Vec<bool> {
     let ec_level = error_correction.to_value();
 
     let format_info = FORMAT_INFORMATION[ec_level][mask as usize];
-    
+
     let mut format_information = Vec::new();
 
     for c in format_info.chars() {
@@ -599,19 +668,46 @@ fn get_format_information(error_correction: &ErrorCorrection, mask: u32) -> Vec<
     format_information
 }
 
-const VERSION_INFORMATION : [&str; 34] = [
-    "000111110010010100", "001000010110111100", "001001101010011001", "001010010011010011", "001011101111110110",
-    "001100011101100010", "001101100001000111", "001110011000001101", "001111100100101000", "010000101101111000",
-    "010001010001011101", "010010101000010111", "010011010100110010", "010100100110100110", "010101011010000011",
-    "010110100011001001", "010111011111101100", "011000111011000100", "011001000111100001", "011010111110101011",
-    "011011000010001110", "011100110000011010", "011101001100111111", "011110110101110101", "011111001001010000",
-    "100000100111010101", "100001011011110000", "100010100010111010", "100011011110011111", "100100101100001011",
-    "100101010000101110", "100110101001100100", "100111010101000001", "101000110001101001"
+const VERSION_INFORMATION: [&str; 34] = [
+    "000111110010010100",
+    "001000010110111100",
+    "001001101010011001",
+    "001010010011010011",
+    "001011101111110110",
+    "001100011101100010",
+    "001101100001000111",
+    "001110011000001101",
+    "001111100100101000",
+    "010000101101111000",
+    "010001010001011101",
+    "010010101000010111",
+    "010011010100110010",
+    "010100100110100110",
+    "010101011010000011",
+    "010110100011001001",
+    "010111011111101100",
+    "011000111011000100",
+    "011001000111100001",
+    "011010111110101011",
+    "011011000010001110",
+    "011100110000011010",
+    "011101001100111111",
+    "011110110101110101",
+    "011111001001010000",
+    "100000100111010101",
+    "100001011011110000",
+    "100010100010111010",
+    "100011011110011111",
+    "100100101100001011",
+    "100101010000101110",
+    "100110101001100100",
+    "100111010101000001",
+    "101000110001101001",
 ];
 
 fn get_version_information(version: usize) -> Vec<bool> {
     let version_info = VERSION_INFORMATION[version - 7];
-    
+
     let mut version_information = Vec::new();
 
     for c in version_info.chars() {
@@ -620,6 +716,3 @@ fn get_version_information(version: usize) -> Vec<bool> {
 
     version_information
 }
-
-
-

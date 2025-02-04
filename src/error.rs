@@ -1,5 +1,5 @@
-use std::fmt;
 use std::error::Error;
+use std::fmt;
 
 pub struct QRError {
     message: String,
@@ -13,8 +13,7 @@ impl QRError {
     }
 }
 
-impl Error for QRError {
-}
+impl Error for QRError {}
 
 impl fmt::Display for QRError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

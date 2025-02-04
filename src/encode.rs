@@ -1,24 +1,33 @@
 use crate::{ErrorCorrection, Mode};
 
-pub(crate) fn encode(version: usize, error_correction: &ErrorCorrection, mode: &Mode, bytes: &[u8]) -> Vec<bool> {
+pub(crate) fn encode(
+    version: usize,
+    error_correction: &ErrorCorrection,
+    mode: &Mode,
+    bytes: &[u8],
+) -> Vec<bool> {
     let bit_count = get_bit_count(version, mode);
     let mode_indicator = get_mode(mode);
-    let size = get_size(bytes, bit_count);
+    let size = get_size(bytes, bit_count, mode);
     let data = get_data(bytes, mode);
     let data_codewords = lookup_data_codewords(version, error_correction) * 8;
     build_combined_data(mode_indicator, size, data, data_codewords)
 }
 
-
-// remaining bits 11101100 00010001 
+// remaining bits 11101100 00010001
 const REMAINDER_BITS: [[bool; 8]; 2] = [
     [true, true, true, false, true, true, false, false],
     [false, false, false, true, false, false, false, true],
 ];
 
-fn build_combined_data(mode_indicator: Vec<bool>, size: Vec<bool>, data: Vec<bool>, data_codewords: u32) -> Vec<bool> {
+fn build_combined_data(
+    mode_indicator: Vec<bool>,
+    size: Vec<bool>,
+    data: Vec<bool>,
+    data_codewords: u32,
+) -> Vec<bool> {
     let mut combined_data = vec![];
-    
+
     // Add mode indicator
     combined_data.extend_from_slice(&mode_indicator);
 
@@ -30,7 +39,7 @@ fn build_combined_data(mode_indicator: Vec<bool>, size: Vec<bool>, data: Vec<boo
 
     // Add padding if necessary
     let mut terminator = 0;
-    
+
     while combined_data.len() + terminator < data_codewords as usize && terminator < 4 {
         combined_data.push(false);
         terminator += 1;
@@ -48,18 +57,8 @@ fn build_combined_data(mode_indicator: Vec<bool>, size: Vec<bool>, data: Vec<boo
         combined_data.extend_from_slice(&REMAINDER_BITS[i % 2]);
     }
 
-
     combined_data
-
-
-
-
 }
-
-
-
-
-
 
 fn get_bit_count(version: usize, mode: &Mode) -> u32 {
     match mode {
@@ -90,7 +89,6 @@ fn get_bit_count(version: usize, mode: &Mode) -> u32 {
     }
 }
 
-
 fn get_mode(mode: &Mode) -> Vec<bool> {
     match mode {
         Mode::Numeric => vec![false, false, false, true],
@@ -100,15 +98,25 @@ fn get_mode(mode: &Mode) -> Vec<bool> {
     }
 }
 
-fn get_size(bytes: &[u8], bit_count: u32) -> Vec<bool> {
-    let size = bytes.len() as u32;
-    let mut size_bits = vec![];
-    for i in 0..bit_count {
-        size_bits.push((size >> (bit_count - i - 1)) & 1 == 1);
+fn get_size(bytes: &[u8], bit_count: u32, mode: &Mode) -> Vec<bool> {
+    match mode {
+        Mode::Kanji => {
+            let size = bytes.len() as u32 / 2;
+            let mut size_bits = vec![];
+            for i in 0..bit_count {
+                size_bits.push((size >> (bit_count - i - 1)) & 1 == 1);
+            }
+            size_bits
+        }
+        _ => {
+            let size = bytes.len() as u32;
+            let mut size_bits = vec![];
+            for i in 0..bit_count {
+                size_bits.push((size >> (bit_count - i - 1)) & 1 == 1);
+            }
+            size_bits
+        }
     }
-
-
-    size_bits
 }
 
 fn get_data(bytes: &[u8], mode: &Mode) -> Vec<bool> {
@@ -151,7 +159,8 @@ fn get_data(bytes: &[u8], mode: &Mode) -> Vec<bool> {
                         data.push((value >> i) & 1 == 1);
                     }
                 } else {
-                    let value = get_alphanumeric_index(c1) * 45 + get_alphanumeric_index(chars.next().unwrap());
+                    let value = get_alphanumeric_index(c1) * 45
+                        + get_alphanumeric_index(chars.next().unwrap());
                     for i in (0..11).rev() {
                         data.push((value >> i) & 1 == 1);
                     }
@@ -171,17 +180,17 @@ fn get_data(bytes: &[u8], mode: &Mode) -> Vec<bool> {
                 if chunk.len() == 2 {
                     // Convert two bytes to 13-bit value
                     let mut value = ((chunk[0] as u16) << 8) | chunk[1] as u16;
-                    
+
                     // Apply Shift-JIS conversion
                     if (0x8140..=0x9FFC).contains(&value) {
                         value -= 0x8140;
                     } else if (0xE040..=0xEBBF).contains(&value) {
                         value -= 0xC140;
                     }
-                    
+
                     // Convert to 13-bit format
                     value = ((value >> 8) * 0xC0) + (value & 0xFF);
-                    
+
                     // Add 13 bits to data
                     for i in (0..13).rev() {
                         data.push((value >> i) & 1 == 1);
@@ -193,7 +202,6 @@ fn get_data(bytes: &[u8], mode: &Mode) -> Vec<bool> {
 
     data
 }
-
 
 fn get_alphanumeric_index(c: char) -> u32 {
     match c {
@@ -213,48 +221,47 @@ fn get_alphanumeric_index(c: char) -> u32 {
 }
 
 const DATA_CODEWORDS: [[u32; 4]; 40] = [
-        [19, 16, 13, 9],     // Version 1
-        [34, 28, 22, 16],    // Version 2
-        [55, 44, 34, 26],    // Version 3
-        [80, 64, 48, 36],    // Version 4
-        [108, 86, 62, 46],   // Version 5
-        [136, 108, 76, 60],  // Version 6
-        [156, 124, 88, 66],  // Version 7
-        [194, 154, 110, 86], // Version 8
-        [232, 182, 132, 100],// Version 9
-        [274, 216, 154, 122],// Version 10
-        [324, 254, 180, 140],// Version 11
-        [370, 290, 206, 158],// Version 12
-        [428, 334, 244, 180],// Version 13
-        [461, 365, 261, 197],// Version 14
-        [523, 415, 295, 223],// Version 15
-        [589, 453, 325, 253],// Version 16
-        [647, 507, 367, 283],// Version 17
-        [721, 563, 397, 313],// Version 18
-        [795, 627, 445, 341],// Version 19
-        [861, 669, 485, 385],// Version 20
-        [932, 714, 512, 406],// Version 21
-        [1006, 782, 568, 442],// Version 22
-        [1094, 860, 614, 464],// Version 23
-        [1174, 914, 664, 514],// Version 24
-        [1276, 1000, 718, 538],// Version 25
-        [1370, 1062, 754, 596],// Version 26
-        [1468, 1128, 808, 628],// Version 27
-        [1531, 1193, 871, 661],// Version 28
-        [1631, 1267, 911, 701],// Version 29
-        [1735, 1373, 985, 745],// Version 30
-        [1843, 1455, 1033, 793],// Version 31
-        [1955, 1541, 1115, 845],// Version 32
-        [2071, 1631, 1171, 901],// Version 33
-        [2191, 1725, 1231, 961],// Version 34
-        [2306, 1812, 1286, 986],// Version 35
-        [2434, 1914, 1354, 1054],// Version 36
-        [2566, 1992, 1426, 1096],// Version 37
-        [2702, 2102, 1502, 1142],// Version 38
-        [2812, 2216, 1582, 1222],// Version 39
-        [2956, 2334, 1666, 1276],// Version 40
-    ];
-
+    [19, 16, 13, 9],          // Version 1
+    [34, 28, 22, 16],         // Version 2
+    [55, 44, 34, 26],         // Version 3
+    [80, 64, 48, 36],         // Version 4
+    [108, 86, 62, 46],        // Version 5
+    [136, 108, 76, 60],       // Version 6
+    [156, 124, 88, 66],       // Version 7
+    [194, 154, 110, 86],      // Version 8
+    [232, 182, 132, 100],     // Version 9
+    [274, 216, 154, 122],     // Version 10
+    [324, 254, 180, 140],     // Version 11
+    [370, 290, 206, 158],     // Version 12
+    [428, 334, 244, 180],     // Version 13
+    [461, 365, 261, 197],     // Version 14
+    [523, 415, 295, 223],     // Version 15
+    [589, 453, 325, 253],     // Version 16
+    [647, 507, 367, 283],     // Version 17
+    [721, 563, 397, 313],     // Version 18
+    [795, 627, 445, 341],     // Version 19
+    [861, 669, 485, 385],     // Version 20
+    [932, 714, 512, 406],     // Version 21
+    [1006, 782, 568, 442],    // Version 22
+    [1094, 860, 614, 464],    // Version 23
+    [1174, 914, 664, 514],    // Version 24
+    [1276, 1000, 718, 538],   // Version 25
+    [1370, 1062, 754, 596],   // Version 26
+    [1468, 1128, 808, 628],   // Version 27
+    [1531, 1193, 871, 661],   // Version 28
+    [1631, 1267, 911, 701],   // Version 29
+    [1735, 1373, 985, 745],   // Version 30
+    [1843, 1455, 1033, 793],  // Version 31
+    [1955, 1541, 1115, 845],  // Version 32
+    [2071, 1631, 1171, 901],  // Version 33
+    [2191, 1725, 1231, 961],  // Version 34
+    [2306, 1812, 1286, 986],  // Version 35
+    [2434, 1914, 1354, 1054], // Version 36
+    [2566, 1992, 1426, 1096], // Version 37
+    [2702, 2102, 1502, 1142], // Version 38
+    [2812, 2216, 1582, 1222], // Version 39
+    [2956, 2334, 1666, 1276], // Version 40
+];
 
 fn lookup_data_codewords(version: usize, error_correction: &ErrorCorrection) -> u32 {
     // Error correction index mapping
@@ -273,4 +280,3 @@ fn lookup_data_codewords(version: usize, error_correction: &ErrorCorrection) -> 
         0 // Invalid version
     }
 }
-

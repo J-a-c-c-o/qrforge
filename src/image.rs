@@ -23,7 +23,6 @@ pub struct ImageQRCode {
     error: Vec<ErrorEnum>,
 }
 
-
 impl ImageQRCode {
     pub(crate) fn new(qr_code: QRCode) -> Self {
         let width = qr_code.dimension();
@@ -43,14 +42,15 @@ impl ImageQRCode {
 
     pub fn set_border(&mut self, border: usize) -> &mut Self {
         // border cannot reduce size of QR code to less than its dimension
-        if self.width - 2 * border < self.qr_code.dimension() || self.height - 2 * border < self.qr_code.dimension() {
+        if self.width - 2 * border < self.qr_code.dimension()
+            || self.height - 2 * border < self.qr_code.dimension()
+        {
             self.error.push(ErrorEnum::InvalidBorder);
         } else {
             self.error.retain(|e| *e != ErrorEnum::InvalidBorder);
             self.border = border;
         }
 
-        
         self
     }
 
@@ -98,7 +98,7 @@ impl ImageQRCode {
         }
 
         let mut img = ImageBuffer::new(self.width as u32, self.height as u32);
-        
+
         let pixel_size_width = (self.width - 2 * self.border) / self.qr_code.dimension();
         let pixel_size_height = (self.height - 2 * self.border) / self.qr_code.dimension();
 
@@ -138,13 +138,11 @@ impl ImageQRCode {
         Ok(img)
     }
 
-
     pub fn build_image_file(&self, path: &str) -> Result<(), QRError> {
         let img = self.build_image()?;
         img.save(path).map_err(|e| QRError::new(&e.to_string()))?;
         Ok(())
     }
-
 
     pub fn build_svg_bytes(&self) -> Result<Vec<u8>, QRError> {
         if !self.error.is_empty() {
@@ -167,11 +165,16 @@ impl ImageQRCode {
         let background = Rectangle::new()
             .set("width", "100%")
             .set("height", "100%")
-            .set("fill", format!("rgba({}, {}, {}, {})", 
-                self.border_color[0], 
-                self.border_color[1], 
-                self.border_color[2], 
-                self.border_color[3] as f32 / 255.0));
+            .set(
+                "fill",
+                format!(
+                    "rgba({}, {}, {}, {})",
+                    self.border_color[0],
+                    self.border_color[1],
+                    self.border_color[2],
+                    self.border_color[3] as f32 / 255.0
+                ),
+            );
         document = document.add(background);
 
         // Add QR code modules
@@ -183,11 +186,16 @@ impl ImageQRCode {
                         .set("y", y * pixel_size + border_height)
                         .set("width", pixel_size)
                         .set("height", pixel_size)
-                        .set("fill", format!("rgba({}, {}, {}, {})",
-                            self.dark_color[0],
-                            self.dark_color[1],
-                            self.dark_color[2],
-                            self.dark_color[3] as f32 / 255.0));
+                        .set(
+                            "fill",
+                            format!(
+                                "rgba({}, {}, {}, {})",
+                                self.dark_color[0],
+                                self.dark_color[1],
+                                self.dark_color[2],
+                                self.dark_color[3] as f32 / 255.0
+                            ),
+                        );
                     document = document.add(module);
                 }
             }
@@ -199,15 +207,14 @@ impl ImageQRCode {
     pub fn build_svg_file(&self, path: &str) -> Result<(), QRError> {
         let svg_data = self.build_svg_bytes()?;
         let mut file = File::create(path).map_err(|e| QRError::new(&e.to_string()))?;
-        file.write_all(&svg_data).map_err(|e| QRError::new(&e.to_string()))?;
+        file.write_all(&svg_data)
+            .map_err(|e| QRError::new(&e.to_string()))?;
         Ok(())
     }
-
 
     pub fn color(red: u8, green: u8, blue: u8, alpha: u8) -> Rgba<u8> {
         Rgba([red, green, blue, alpha])
     }
-    
 
     pub const WHITE: Rgba<u8> = Rgba([255, 255, 255, 255]);
     pub const BLACK: Rgba<u8> = Rgba([0, 0, 0, 255]);
@@ -218,7 +225,4 @@ impl ImageQRCode {
     pub const CYAN: Rgba<u8> = Rgba([0, 255, 255, 255]);
     pub const MAGENTA: Rgba<u8> = Rgba([255, 0, 255, 255]);
     pub const TRANSPARENT: Rgba<u8> = Rgba([0, 0, 0, 0]);
-
-
-
 }
