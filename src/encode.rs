@@ -5,12 +5,94 @@ pub(crate) fn encode_segment (
     mode: &Mode,
     bytes: &[u8],
 ) -> Vec<bool> {
-    let bit_count = get_bit_count(version, mode);
-    let mode_indicator = get_mode(mode);
-    let size = get_size(bytes, bit_count, mode);
-    let data = get_data(bytes, mode);
-    build_segment(mode_indicator, size, data)
+
+
+    match mode {
+        Mode::ECI(_) => {
+            let eci_bit_count = get_bit_count(version, mode);
+            let eci_mode_indicator = get_mode(mode);
+            let eci_size = get_size(bytes, eci_bit_count, mode);
+
+            
+            let bit_count = get_bit_count(version, &Mode::Byte);
+            let mode_indicator = get_mode(&Mode::Byte);
+            let size = get_size(bytes, bit_count, &Mode::Byte);
+            let data = get_data(bytes, &Mode::Byte);
+
+            let mut combined = vec![];
+            combined.extend_from_slice(&eci_mode_indicator);
+            combined.extend_from_slice(&eci_size);
+
+            combined.extend_from_slice(&mode_indicator);
+            combined.extend_from_slice(&size);
+            combined.extend_from_slice(&data);
+
+            combined
+        }
+
+        _ => {
+            let bit_count = get_bit_count(version, mode);
+            let mode_indicator = get_mode(mode);
+            let size = get_size(bytes, bit_count, mode);
+            let data = get_data(bytes, mode);
+            build_segment(mode_indicator, size, data)
+        }
+        
+    }
 }
+
+
+pub(crate) fn encode_structured_append(
+    version: usize,
+    mode: &Mode,
+    error_correction: &ErrorCorrection,
+    index: usize,
+    total: usize,
+    bytes: &[u8],
+    parity: u8,
+) -> Result<Vec<bool>, QRError> {
+    let data = encode_segment(version, mode, bytes);
+
+    // now add the structured append header
+    let mut structured_append = vec![];
+    let mode_indicator = [false, false, true, true];
+    let index_bits: [bool; 4] = [
+        (index >> 3) & 1 == 1,
+        (index >> 2) & 1 == 1,
+        (index >> 1) & 1 == 1,
+        index & 1 == 1,
+    ];
+
+    let total_bits: [bool; 4] = [
+        (total >> 3) & 1 == 1,
+        (total >> 2) & 1 == 1,
+        (total >> 1) & 1 == 1,
+        total & 1 == 1,
+    ];
+
+    let parity_bits: [bool; 8] = [
+        (parity >> 7) & 1 == 1,
+        (parity >> 6) & 1 == 1,
+        (parity >> 5) & 1 == 1,
+        (parity >> 4) & 1 == 1,
+        (parity >> 3) & 1 == 1,
+        (parity >> 2) & 1 == 1,
+        (parity >> 1) & 1 == 1,
+        parity & 1 == 1,
+    ];
+
+
+    structured_append.extend_from_slice(&mode_indicator);
+    structured_append.extend_from_slice(&index_bits);
+    structured_append.extend_from_slice(&total_bits);
+    structured_append.extend_from_slice(&parity_bits);
+    structured_append.extend_from_slice(&data);
+
+
+    build_combined_data(structured_append, version, error_correction)
+}
+
+
 
 // remaining bits 11101100 00010001
 const REMAINDER_BITS: [[bool; 8]; 2] = [

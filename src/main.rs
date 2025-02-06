@@ -60,6 +60,21 @@ impl QRBuilder {
 
         QRCode::build(version, error_correction, &self.segments)
     }
+
+    pub fn build_with_structual_append(
+        self,
+        amount: usize,
+    ) -> Result<Vec<QRCode>, QRError> {
+        let error_correction = self.error_correction.unwrap_or(ErrorCorrection::M);
+
+        let version = match self.version {
+            Some(v) => v,
+            // None => mode_selector::get_version(&self.segments, &error_correction)?,
+            None => 5,
+        };
+
+        QRCode::build_with_structual_append(version, error_correction, &self.segments, amount)
+    }
 }
 
 impl QRCode {
@@ -88,15 +103,7 @@ impl QRCode {
         let mut combined_data = vec![];
 
         for (mode, bytes) in segments {
-            match mode {
-                Mode::ECI(_) => {
-                    combined_data.extend_from_slice(&encode::encode_segment(version, mode, &[]));
-                    combined_data.extend_from_slice(&encode::encode_segment(version, &Mode::Byte, bytes));
-                }
-                _ => {
-                    combined_data.extend_from_slice(&encode::encode_segment(version, mode, bytes));
-                }
-            }
+            combined_data.extend_from_slice(&encode::encode_segment(version, mode, bytes));
         }
 
         let combined_data = encode::build_combined_data(combined_data, version, &error_correction)?;
@@ -109,6 +116,77 @@ impl QRCode {
         matrix_builder::build_qr_matrix(&mut matrix, version, &error_correction, result);
 
         Ok(matrix)
+    }
+
+    fn build_with_structual_append(
+        version: usize,
+        error_correction: ErrorCorrection,
+        segments: &[(Mode, Vec<u8>)],
+        amount: usize,
+    ) -> Result<Vec<QRCode>, QRError> {
+        let dimension = Self::calculate_dimension(version);
+
+        // check if all modes are the same
+        let mut mode = None;
+
+        for (m, _) in segments {
+            if mode.is_none() {
+                mode = Some(m);
+            } else if mode.unwrap().to_value() != m.to_value() {
+                return Err(QRError::new("All segments must have the same mode"));
+            }
+        }
+
+        if mode.is_none() {
+            return Err(QRError::new("No segments provided"));
+        }
+
+        // parity is xored with the data
+        let mut data: Vec<u8> = vec![];
+        let mut parity: u8 = 0;
+        for (_, bytes) in segments {
+            for byte in bytes {
+                parity ^= byte;
+            }
+            data.extend_from_slice(bytes);
+        }
+
+        // split data into chunks
+        let chunk_size = if data.len() % amount == 0 {
+            data.len() / amount
+        } else {
+            data.len() / amount + 1
+        };
+
+        let chunks = data.chunks(chunk_size).map(|c| c.to_vec()).collect::<Vec<Vec<u8>>>();
+
+
+        let mut qr_codes = vec![];
+
+        // for chunk in chunks {
+        for (index, chunk) in chunks.iter().enumerate() {
+            let mut matrix = QRCode {
+                matrix: vec![false; dimension * dimension],
+                some_matrix: vec![false; dimension * dimension],
+                dimension,
+            };
+
+            // let combined_data = encode::encode_structured_append(version, mode, &error_correction, index, total, bytes, parity);
+            let combined_data = encode::encode_structured_append(version, mode.unwrap(), &error_correction, index, amount, chunk, parity)?;
+
+            let (blocks, ec_blocks) = correction::correction(version, &error_correction, combined_data);
+            let result = interleave::interleave(blocks, ec_blocks, version);
+
+            matrix_builder::build_qr_matrix(&mut matrix, version, &error_correction, result);
+
+            qr_codes.push(matrix);
+        }
+
+        Ok(qr_codes)
+
+
+
+        
     }
 
     pub fn get(&self, x: usize, y: usize) -> bool {
@@ -242,6 +320,21 @@ fn main() -> Result<(), QRError> {
         .set_border(4)
         .build_svg_file("hello_japanese.svg")?;
 
+    // let structured = QRCode::builder()
+    //     .add_segment(None, b"Hello")
+    //     .add_segment(None, b"World")
+    //     .add_segment(None, b"!")
+    //     .error_correction(ErrorCorrection::H)
+    //     .version(5)
+    //     .build_with_structual_append(2)?;
+
+    // for (index, qr_code) in structured.iter().enumerate() {
+    //     qr_code.image_builder()
+    //         .set_width(200)
+    //         .set_height(200)
+    //         .set_border(4)
+    //         .build_svg_file(&format!("hello_structured_{}.svg", index))?;
+    // }
     println!("QR Code generated in: {:?}", start.elapsed());
 
     Ok(())
