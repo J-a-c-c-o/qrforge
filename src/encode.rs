@@ -55,7 +55,7 @@ pub(crate) fn encode_structured_append(
 
     // now add the structured append header
     let mut structured_append = vec![];
-    let mode_indicator = [false, false, true, true];
+    let mode_indicator: [bool; 4] = [false, false, true, true];
     let index_bits: [bool; 4] = [
         (index >> 3) & 1 == 1,
         (index >> 2) & 1 == 1,
@@ -116,8 +116,6 @@ pub(crate) fn build_combined_data(
     if data.len() > data_codewords as usize {
         return Err(QRError::new("Data too large"));
     }
-
-
 
     // Add data
     combined_data.extend_from_slice(&data);
@@ -338,7 +336,7 @@ fn get_alphanumeric_index(c: char) -> u32 {
     }
 }
 
-const DATA_CODEWORDS: [[u32; 4]; 40] = [
+pub(crate) const DATA_CODEWORDS: [[u32; 4]; 40] = [
     [19, 16, 13, 9],          // Version 1
     [34, 28, 22, 16],         // Version 2
     [55, 44, 34, 26],         // Version 3

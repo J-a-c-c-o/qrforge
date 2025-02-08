@@ -54,8 +54,7 @@ impl QRBuilder {
 
         let version = match self.version {
             Some(v) => v,
-            // None => mode_selector::get_version(&self.segments, &error_correction)?,
-            None => 5,
+            None => mode_selector::get_version(&self.segments, &error_correction, None)?,
         };
 
         QRCode::build(version, error_correction, &self.segments)
@@ -69,8 +68,7 @@ impl QRBuilder {
 
         let version = match self.version {
             Some(v) => v,
-            // None => mode_selector::get_version(&self.segments, &error_correction)?,
-            None => 5,
+            None => mode_selector::get_version(&self.segments, &error_correction, Some(amount))?,
         };
 
         QRCode::build_with_structual_append(version, error_correction, &self.segments, amount)
@@ -163,7 +161,7 @@ impl QRCode {
 
         let mut qr_codes = vec![];
 
-        // for chunk in chunks {
+        
         for (index, chunk) in chunks.iter().enumerate() {
             let mut matrix = QRCode {
                 matrix: vec![false; dimension * dimension],
@@ -303,7 +301,24 @@ fn main() -> Result<(), QRError> {
     // Japanese text "こんにちは" (Hello) in Shift-JIS encoding;
     let kanji = vec![0x93, 0xfa, 0x96, 0x7b, 0x82, 0xcc, 0x82, 0xc1, 0x82, 0xbd];
     let utf8: Vec<u8> = vec![255, 61];
-    let bytes = b" Hello";
+    let bytes = b"Hello world";
+    // 7089 numbers
+    let mut numbers = vec![];
+    for i in 0..7084 {
+        numbers.push((i % 10) as u8 + 48);
+    }
+
+    // let _simple_qr_code = QRCode::builder()
+    //     .add_segment(Some(Mode::Numeric), &numbers)
+    //     .add_segment(Some(Mode::Numeric), &numbers)
+    //     // .version(40)
+    //     .error_correction(ErrorCorrection::L)
+    //     .build_with_structual_append(2)?;
+    //     // .image_builder()
+    //     // .set_width(200)
+    //     // .set_height(200)
+    //     // .set_border(4)
+    //     // .build_svg_file("hello.svg")?;
 
     let _qr_code = QRCode::builder()
         .add_segment(Some(Mode::Kanji), &kanji)
@@ -312,7 +327,7 @@ fn main() -> Result<(), QRError> {
         .add_segment(Some(Mode::Numeric), b"123456")
         .add_segment(Some(Mode::ECI(3)), &utf8)
         .error_correction(ErrorCorrection::H)
-        .version(4)
+        .version(5)
         .build()?
         .image_builder()
         .set_width(200)
