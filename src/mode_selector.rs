@@ -1,4 +1,4 @@
-use crate::{encode, ErrorCorrection, Mode, QRError};
+use crate::{encode, ErrorCorrection, Mode, QRError, Version};
 
 pub(crate) fn select_mode(data: &[u8]) -> Mode {
     if data.iter().all(|&c| c >= b'0' && c <= b'9') {
@@ -20,7 +20,7 @@ pub(crate) fn get_version(
     segments: &Vec<(Mode, Vec<u8>)>,
     error_correction: &ErrorCorrection,
     structual_append: Option<usize>,
-) -> Result<usize, QRError> {
+) -> Result<Version, QRError> {
     for i in 0..40 {
         let mut data_size = 0;
         for (mode, data) in segments {
@@ -42,7 +42,7 @@ pub(crate) fn get_version(
         let capacity = crate::encode::DATA_CODEWORDS[i][error_correction.to_value()] * 8;
 
         if data_size <= capacity as usize {
-            return Ok(i + 1);
+            return Ok(Version::V(i + 1));
         }
     }
 

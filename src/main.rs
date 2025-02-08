@@ -14,7 +14,7 @@ pub struct QRCode {
 }
 
 pub struct QRBuilder {
-    version: Option<usize>,
+    version: Option<Version>,
     error_correction: Option<ErrorCorrection>,
     segments: Vec<(Mode, Vec<u8>)>,
 }
@@ -28,7 +28,7 @@ impl QRBuilder {
         }
     }
 
-    pub fn version(mut self, version: usize) -> Self {
+    pub fn version(mut self, version: Version) -> Self {
         self.version = Some(version);
         self
     }
@@ -85,10 +85,30 @@ impl QRCode {
     }
 
     fn build(
-        version: usize,
+        version: Version,
         error_correction: ErrorCorrection,
         segments: &[(Mode, Vec<u8>)],
     ) -> Result<QRCode, QRError> {
+
+        match version {
+            Version::V(v) => {
+                if v < 1 || v > 40 {
+                    return Err(QRError::new("Invalid version"));
+                }
+            }
+            Version::M(_v) => {
+                return Err(QRError::new("Invalid version"));
+                // if v < 1 || v > 4 {
+                //     return Err(QRError::new("Invalid version"));
+                // }
+            }
+        }
+
+        let version = match version {
+            Version::V(v) => v,
+            Version::M(v) => v + 40
+        };
+
         let dimension = Self::calculate_dimension(version);
 
 
@@ -117,11 +137,31 @@ impl QRCode {
     }
 
     fn build_with_structual_append(
-        version: usize,
+        version: Version,
         error_correction: ErrorCorrection,
         segments: &[(Mode, Vec<u8>)],
         amount: usize,
     ) -> Result<Vec<QRCode>, QRError> {
+
+        match version {
+            Version::V(v) => {
+                if v < 1 || v > 40 {
+                    return Err(QRError::new("Invalid version"));
+                }
+            }
+            Version::M(_v) => {
+                return Err(QRError::new("Invalid version"));
+                // if v < 1 || v > 4 {
+                //     return Err(QRError::new("Invalid version"));
+                // }
+            }
+        }
+
+        let version = match version {
+            Version::V(v) => v,
+            Version::M(v) => v + 40
+        };
+
         let dimension = Self::calculate_dimension(version);
 
         // check if all modes are the same
@@ -295,6 +335,11 @@ impl ErrorCorrection {
     }
 }
 
+pub enum Version {
+    V(usize),
+    M(usize),
+}
+
 fn main() -> Result<(), QRError> {
     let start = std::time::Instant::now();
 
@@ -327,7 +372,7 @@ fn main() -> Result<(), QRError> {
         .add_segment(Some(Mode::Numeric), b"123456")
         .add_segment(Some(Mode::ECI(3)), &utf8)
         .error_correction(ErrorCorrection::H)
-        .version(5)
+        .version(Version::V(5))
         .build()?
         .image_builder()
         .set_width(200)
