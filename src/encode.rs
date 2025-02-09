@@ -10,12 +10,12 @@ pub(crate) fn encode_segment (
     match mode {
         Mode::ECI(_) => {
             let eci_bit_count = get_bit_count(version, mode);
-            let eci_mode_indicator = get_mode(mode);
+            let eci_mode_indicator = get_mode(mode, version);
             let eci_size = get_size(bytes, eci_bit_count, mode);
 
             
             let bit_count = get_bit_count(version, &Mode::Byte);
-            let mode_indicator = get_mode(&Mode::Byte);
+            let mode_indicator = get_mode(&Mode::Byte, version);
             let size = get_size(bytes, bit_count, &Mode::Byte);
             let data = get_data(bytes, &Mode::Byte);
 
@@ -32,7 +32,7 @@ pub(crate) fn encode_segment (
 
         _ => {
             let bit_count = get_bit_count(version, mode);
-            let mode_indicator = get_mode(mode);
+            let mode_indicator = get_mode(mode, version);
             let size = get_size(bytes, bit_count, mode);
             let data = get_data(bytes, mode);
             build_segment(mode_indicator, size, data)
@@ -122,8 +122,16 @@ pub(crate) fn build_combined_data(
 
     // Add padding if necessary
     let mut terminator = 0;
+    let terminator_size = match version {
+        1..=40 => 4,
+        41 => 3,
+        42 => 5,
+        43 => 7,
+        44 => 9,
+        _ => panic!("Invalid version"),
+    };
 
-    while combined_data.len() + terminator < data_codewords as usize && terminator < 4 {
+    while combined_data.len() + terminator < data_codewords as usize && terminator < terminator_size {
         combined_data.push(false);
         terminator += 1;
     }
@@ -165,25 +173,36 @@ fn get_bit_count(version: usize, mode: &Mode) -> u32 {
             1..=9 => 10,
             10..=26 => 12,
             27..=40 => 14,
-            _ => 0,
+            41 => 3,
+            42 => 4,
+            43 => 5,
+            44 => 6,
+            _ => panic!("Invalid version"),
         },
         Mode::Alphanumeric => match version {
             1..=9 => 9,
             10..=26 => 11,
             27..=40 => 13,
-            _ => 0,
+            42 => 3,
+            43 => 4,
+            44 => 5,
+            _ => panic!("Invalid version"),
         },
         Mode::Byte => match version {
             1..=9 => 8,
             10..=26 => 16,
             27..=40 => 16,
-            _ => 0,
+            43 => 4,
+            44 => 5,
+            _ => panic!("Invalid version"),
         },
         Mode::Kanji => match version {
             1..=9 => 8,
             10..=26 => 10,
             27..=40 => 12,
-            _ => 0,
+            43 => 3,
+            44 => 4,
+            _ => panic!("Invalid version"),
         },
         Mode::ECI(mode) => match mode {
             0..=127 => 8,
@@ -194,15 +213,41 @@ fn get_bit_count(version: usize, mode: &Mode) -> u32 {
     }
 }
 
-fn get_mode(mode: &Mode) -> Vec<bool> {
-    match mode {
-        Mode::Numeric => vec![false, false, false, true],
-        Mode::Alphanumeric => vec![false, false, true, false],
-        Mode::Byte => vec![false, true, false, false],
-        Mode::Kanji => vec![true, false, false, false],
-        Mode::ECI(_) => vec![false, true, true, true],
+fn get_mode(mode: &Mode, version: usize) -> Vec<bool> {
+    match version {
+        1..=40 =>
+        match mode {
+            Mode::Numeric => vec![false, false, false, true],
+            Mode::Alphanumeric => vec![false, false, true, false],
+            Mode::Byte => vec![false, true, false, false],
+            Mode::Kanji => vec![true, false, false, false],
+            Mode::ECI(_) => vec![false, true, true, true],
+        },
+        41 => vec![],
+        42 => match mode {
+            Mode::Numeric => vec![false],
+            Mode::Alphanumeric => vec![true],
+            _ => panic!("Invalid mode"),
+        },
+        43 => match mode {
+            Mode::Numeric => vec![false, false],
+            Mode::Alphanumeric => vec![false, true],
+            Mode::Byte => vec![true, false],
+            Mode::Kanji => vec![true, true],
+            _ => panic!("Invalid mode"),
+        },
+        44 => match mode {
+            Mode::Numeric => vec![false, false, false],
+            Mode::Alphanumeric => vec![false, false, true],
+            Mode::Byte => vec![false, true, false],
+            Mode::Kanji => vec![false, true, true],
+            _ => panic!("Invalid mode"),
+        },
+        _ => panic!("Invalid version"),
     }
 }
+
+
 
 fn get_size(bytes: &[u8], bit_count: u32, mode: &Mode) -> Vec<bool> {
     match mode {
@@ -336,7 +381,7 @@ fn get_alphanumeric_index(c: char) -> u32 {
     }
 }
 
-pub(crate) const DATA_CODEWORDS: [[u32; 4]; 40] = [
+pub(crate) const DATA_CODEWORDS: [[u32; 4]; 44] = [
     [19, 16, 13, 9],          // Version 1
     [34, 28, 22, 16],         // Version 2
     [55, 44, 34, 26],         // Version 3
@@ -377,6 +422,12 @@ pub(crate) const DATA_CODEWORDS: [[u32; 4]; 40] = [
     [2702, 2102, 1502, 1142], // Version 38
     [2812, 2216, 1582, 1222], // Version 39
     [2956, 2334, 1666, 1276], // Version 40
+
+    // micro versions
+    [3, 0, 0, 0], // micro v1
+    [5, 4, 0, 0], // micro v2
+    [11, 9, 0, 0], // micro v3
+    [16, 14, 10, 0] // micro v4
 ];
 
 fn lookup_data_codewords(version: usize, error_correction: &ErrorCorrection) -> u32 {
@@ -390,9 +441,9 @@ fn lookup_data_codewords(version: usize, error_correction: &ErrorCorrection) -> 
     };
 
     // Validate version range and return corresponding value
-    if version >= 1 && version <= 40 {
+    if version >= 1 && version <= 44 {
         DATA_CODEWORDS[version - 1][ec_index]
     } else {
-        0 // Invalid version
+        panic!("Invalid version");
     }
 }
