@@ -242,7 +242,7 @@ fn ec_codewords(version: usize, error_correction: &ErrorCorrection) -> u32 {
     EC_CODEWORDS[version - 1][correction_level] as u32
 }
 
-const BLOCK_LOOKUP: [[[u32; 4]; 4]; 40] = [
+const BLOCK_LOOKUP: [[[u32; 4]; 4]; 44] = [
     // Version 1
     [[1, 19, 0, 0], [1, 16, 0, 0], [1, 13, 0, 0], [1, 9, 0, 0]],
     // Version 2
@@ -493,9 +493,18 @@ const BLOCK_LOOKUP: [[[u32; 4]; 4]; 40] = [
         [34, 24, 34, 25],
         [20, 15, 61, 16],
     ],
+
+    // Version Micro 1
+    [[1, 3, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
+    // Version Micro 2
+    [[1, 5, 0, 0], [1, 4, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
+    // Version Micro 3
+    [[1, 11, 0, 0], [1, 9, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
+    // Version Micro 4
+    [[1, 16, 0, 0], [1, 14, 0, 0], [1, 10, 0, 0], [0, 0, 0, 0]],
 ];
 
-const EC_CODEWORDS: [[usize; 4]; 40] = [
+const EC_CODEWORDS: [[usize; 4]; 44] = [
     // Version 1-10
     [7, 10, 13, 17],
     [10, 16, 22, 28],
@@ -540,4 +549,10 @@ const EC_CODEWORDS: [[usize; 4]; 40] = [
     [30, 28, 30, 30],
     [30, 28, 30, 30],
     [30, 28, 30, 30],
+
+    // Version Micro 1-4
+    [2, 0, 0, 0],
+    [5, 6, 0, 0],
+    [6, 8, 0, 0],
+    [8, 10, 14, 0],
 ];
