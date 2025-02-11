@@ -48,5 +48,3 @@ pub(crate) fn get_version(
 
     Err(QRError::new("Data is too large"))
 }
-
-

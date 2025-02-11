@@ -1,19 +1,12 @@
 use crate::{error::QRError, ErrorCorrection, Mode};
 
-pub(crate) fn encode_segment (
-    version: usize,
-    mode: &Mode,
-    bytes: &[u8],
-) -> Vec<bool> {
-
-
+pub(crate) fn encode_segment(version: usize, mode: &Mode, bytes: &[u8]) -> Vec<bool> {
     match mode {
         Mode::ECI(_) => {
             let eci_bit_count = get_bit_count(version, mode);
             let eci_mode_indicator = get_mode(mode, version);
             let eci_size = get_size(bytes, eci_bit_count, mode);
 
-            
             let bit_count = get_bit_count(version, &Mode::Byte);
             let mode_indicator = get_mode(&Mode::Byte, version);
             let size = get_size(bytes, bit_count, &Mode::Byte);
@@ -37,10 +30,8 @@ pub(crate) fn encode_segment (
             let data = get_data(bytes, mode);
             build_segment(mode_indicator, size, data)
         }
-        
     }
 }
-
 
 pub(crate) fn encode_structured_append(
     version: usize,
@@ -81,18 +72,14 @@ pub(crate) fn encode_structured_append(
         parity & 1 == 1,
     ];
 
-
     structured_append.extend_from_slice(&mode_indicator);
     structured_append.extend_from_slice(&index_bits);
     structured_append.extend_from_slice(&total_bits);
     structured_append.extend_from_slice(&parity_bits);
     structured_append.extend_from_slice(&data);
 
-
     build_combined_data(structured_append, version, error_correction)
 }
-
-
 
 // remaining bits 11101100 00010001
 const REMAINDER_BITS: [[bool; 8]; 2] = [
@@ -100,17 +87,15 @@ const REMAINDER_BITS: [[bool; 8]; 2] = [
     [false, false, false, true, false, false, false, true],
 ];
 
-
 pub(crate) fn build_combined_data(
     data: Vec<bool>,
     version: usize,
     error_correction: &ErrorCorrection,
 ) -> Result<Vec<bool>, QRError> {
     let mut combined_data = vec![];
-    
-    let data_codewords = lookup_data_codewords(version, error_correction) * if version <= 40 { 8 } else { 1 };
 
-
+    let data_codewords =
+        lookup_data_codewords(version, error_correction) * if version <= 40 { 8 } else { 1 };
 
     if data_codewords == 0 {
         return Err(QRError::new("Invalid version"));
@@ -141,18 +126,11 @@ pub(crate) fn build_combined_data(
         terminator += 1;
     }
 
-
     println!("Data codewords len: {}", combined_data.len());
-    
-    
-
-   
-
-    
 
     // Add remainder bits
     if version <= 40 {
-         // Add remainder bits so that the length is a multiple of multiple
+        // Add remainder bits so that the length is a multiple of multiple
         while combined_data.len() % 8 != 0 {
             combined_data.push(false);
         }
@@ -166,7 +144,7 @@ pub(crate) fn build_combined_data(
             combined_data.push(false);
         }
     }
-    
+
     Ok(combined_data)
 }
 
@@ -181,7 +159,6 @@ fn build_segment(mode_indicator: Vec<bool>, size: Vec<bool>, data: Vec<bool>) ->
 
     // Add data
     segment.extend_from_slice(&data);
-
 
     segment
 }
@@ -234,8 +211,7 @@ fn get_bit_count(version: usize, mode: &Mode) -> u32 {
 
 fn get_mode(mode: &Mode, version: usize) -> Vec<bool> {
     match version {
-        1..=40 =>
-        match mode {
+        1..=40 => match mode {
             Mode::Numeric => vec![false, false, false, true],
             Mode::Alphanumeric => vec![false, false, true, false],
             Mode::Byte => vec![false, true, false, false],
@@ -265,8 +241,6 @@ fn get_mode(mode: &Mode, version: usize) -> Vec<bool> {
         _ => panic!("Invalid version"),
     }
 }
-
-
 
 fn get_size(bytes: &[u8], bit_count: u32, mode: &Mode) -> Vec<bool> {
     match mode {
@@ -375,9 +349,7 @@ fn get_data(bytes: &[u8], mode: &Mode) -> Vec<bool> {
                 }
             }
         }
-        Mode::ECI(_) => {
-            
-        }
+        Mode::ECI(_) => {}
     }
 
     data
@@ -441,12 +413,11 @@ pub(crate) const DATA_CODEWORDS: [[u32; 4]; 44] = [
     [2702, 2102, 1502, 1142], // Version 38
     [2812, 2216, 1582, 1222], // Version 39
     [2956, 2334, 1666, 1276], // Version 40
-
     // micro versions
-    [20, 0, 0, 0], // micro v1
-    [40, 32, 0, 0], // micro v2
-    [84, 68, 0, 0], // micro v3
-    [128, 112, 80, 0] // micro v4
+    [20, 0, 0, 0],     // micro v1
+    [40, 32, 0, 0],    // micro v2
+    [84, 68, 0, 0],    // micro v3
+    [128, 112, 80, 0], // micro v4
 ];
 
 fn lookup_data_codewords(version: usize, error_correction: &ErrorCorrection) -> u32 {

@@ -46,7 +46,6 @@ fn add_seperators(matrix: &mut QRCode) {
     }
 }
 
-
 fn add_timing_patterns(matrix: &mut QRCode) {
     let dimension = matrix.dimension();
 
@@ -55,7 +54,6 @@ fn add_timing_patterns(matrix: &mut QRCode) {
         matrix.set(0, i, i % 2 == 0);
     }
 }
-
 
 fn add_reseverd_area(matrix: &mut QRCode) {
     add_reserverd_area(matrix);
@@ -85,7 +83,6 @@ fn add_data(matrix: &mut QRCode, data: Vec<bool>) -> Vec<(i32, i32)> {
     let mut direction = true; // false = up, true = down
     let mut data_index = 0;
     while data_index < data.len() && current.0 >= 0 {
-
         if matrix.is_empty(current.0 as usize, current.1 as usize) {
             matrix.set(current.0 as usize, current.1 as usize, data[data_index]);
             data_index += 1;
@@ -199,7 +196,6 @@ fn calculate_penalty(matrix: &QRCode) -> i32 {
     penalty
 }
 
-
 fn apply_format_version_information(
     matrix: &mut QRCode,
     version: usize,
@@ -222,22 +218,19 @@ fn apply_format_version_information(
     }
 }
 
-
-
 const FORMAT_INFO_MICRO: [u16; 32] = [
-    0x4445, 0x4172, 0x4e2b, 0x4b1c, 0x55ae, 0x5099, 0x5fc0, 0x5af7, 0x6793, 0x62a4, 0x6dfd,
-    0x68ca, 0x7678, 0x734f, 0x7c16, 0x7921, 0x06de, 0x03e9, 0x0cb0, 0x0987, 0x1735, 0x1202,
-    0x1d5b, 0x186c, 0x2508, 0x203f, 0x2f66, 0x2a51, 0x34e3, 0x31d4, 0x3e8d, 0x3bba,
+    0x4445, 0x4172, 0x4e2b, 0x4b1c, 0x55ae, 0x5099, 0x5fc0, 0x5af7, 0x6793, 0x62a4, 0x6dfd, 0x68ca,
+    0x7678, 0x734f, 0x7c16, 0x7921, 0x06de, 0x03e9, 0x0cb0, 0x0987, 0x1735, 0x1202, 0x1d5b, 0x186c,
+    0x2508, 0x203f, 0x2f66, 0x2a51, 0x34e3, 0x31d4, 0x3e8d, 0x3bba,
 ];
 
-const MICRO_MAPPING: [[u32; 4]; 4] = [
-    [0, 0, 0, 0],
-    [1, 2, 0, 0],
-    [3, 4, 0, 0],
-    [5, 6, 7, 0],
-];
+const MICRO_MAPPING: [[u32; 4]; 4] = [[0, 0, 0, 0], [1, 2, 0, 0], [3, 4, 0, 0], [5, 6, 7, 0]];
 
-fn get_format_information(error_correction: &ErrorCorrection, version: usize, mask: u32) -> Vec<bool> {
+fn get_format_information(
+    error_correction: &ErrorCorrection,
+    version: usize,
+    mask: u32,
+) -> Vec<bool> {
     let ec_level = error_correction.to_value();
 
     let version = version - 41;
@@ -253,6 +246,4 @@ fn get_format_information(error_correction: &ErrorCorrection, version: usize, ma
     }
 
     format_information_string
-
-
 }

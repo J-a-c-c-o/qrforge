@@ -43,12 +43,12 @@ impl QRBuilder {
         if mode.is_some() {
             self.segments.push((mode.unwrap(), bytes.to_vec()));
         } else {
-            self.segments.push((mode_selector::select_mode(&bytes), bytes.to_vec()));
+            self.segments
+                .push((mode_selector::select_mode(&bytes), bytes.to_vec()));
             // self.segments.push((Mode::Byte, bytes.to_vec()));
         }
         self
     }
-
 
     pub fn build(self) -> Result<QRCode, QRError> {
         let error_correction = self.error_correction.unwrap_or(ErrorCorrection::M);
@@ -61,10 +61,7 @@ impl QRBuilder {
         QRCode::build(version, error_correction, &self.segments)
     }
 
-    pub fn build_with_structual_append(
-        self,
-        amount: usize,
-    ) -> Result<Vec<QRCode>, QRError> {
+    pub fn build_with_structual_append(self, amount: usize) -> Result<Vec<QRCode>, QRError> {
         let error_correction = self.error_correction.unwrap_or(ErrorCorrection::M);
 
         let version = match self.version {
@@ -90,7 +87,6 @@ impl QRCode {
         error_correction: ErrorCorrection,
         segments: &[(Mode, Vec<u8>)],
     ) -> Result<QRCode, QRError> {
-
         match version {
             Version::V(v) => {
                 if v < 1 || v > 40 {
@@ -106,11 +102,10 @@ impl QRCode {
 
         let version = match version {
             Version::V(v) => v,
-            Version::M(v) => v + 40
+            Version::M(v) => v + 40,
         };
 
         let dimension = Self::calculate_dimension(version);
-
 
         let mut matrix = QRCode {
             matrix: vec![false; dimension * dimension],
@@ -126,18 +121,21 @@ impl QRCode {
 
         let combined_data = encode::build_combined_data(combined_data, version, &error_correction)?;
 
-
-    
-        
         let (blocks, ec_blocks) = correction::correction(version, &error_correction, combined_data);
         let result = interleave::interleave(blocks, ec_blocks, version);
 
         match version {
-            1..=40 => matrix_builder::build_qr_matrix(&mut matrix, version, &error_correction, result),
-            41..=44 => matrix_builder_micro::build_qr_matrix(&mut matrix, version, &error_correction, result),
+            1..=40 => {
+                matrix_builder::build_qr_matrix(&mut matrix, version, &error_correction, result)
+            }
+            41..=44 => matrix_builder_micro::build_qr_matrix(
+                &mut matrix,
+                version,
+                &error_correction,
+                result,
+            ),
             _ => return Err(QRError::new("Invalid version")),
         };
-        
 
         Ok(matrix)
     }
@@ -148,7 +146,6 @@ impl QRCode {
         segments: &[(Mode, Vec<u8>)],
         amount: usize,
     ) -> Result<Vec<QRCode>, QRError> {
-
         match version {
             Version::V(v) => {
                 if v < 1 || v > 40 {
@@ -156,14 +153,15 @@ impl QRCode {
                 }
             }
             Version::M(_) => {
-                return Err(QRError::new("Structured append is not supported for micro QR codes"));
-
+                return Err(QRError::new(
+                    "Structured append is not supported for micro QR codes",
+                ));
             }
         }
 
         let version = match version {
             Version::V(v) => v,
-            Version::M(v) => v + 40
+            Version::M(v) => v + 40,
         };
 
         let dimension = Self::calculate_dimension(version);
@@ -200,12 +198,13 @@ impl QRCode {
             data.len() / amount + 1
         };
 
-        let chunks = data.chunks(chunk_size).map(|c| c.to_vec()).collect::<Vec<Vec<u8>>>();
-
+        let chunks = data
+            .chunks(chunk_size)
+            .map(|c| c.to_vec())
+            .collect::<Vec<Vec<u8>>>();
 
         let mut qr_codes = vec![];
 
-        
         for (index, chunk) in chunks.iter().enumerate() {
             let mut matrix = QRCode {
                 matrix: vec![false; dimension * dimension],
@@ -214,9 +213,18 @@ impl QRCode {
             };
 
             // let combined_data = encode::encode_structured_append(version, mode, &error_correction, index, total, bytes, parity);
-            let combined_data = encode::encode_structured_append(version, mode.unwrap(), &error_correction, index, amount, chunk, parity)?;
+            let combined_data = encode::encode_structured_append(
+                version,
+                mode.unwrap(),
+                &error_correction,
+                index,
+                amount,
+                chunk,
+                parity,
+            )?;
 
-            let (blocks, ec_blocks) = correction::correction(version, &error_correction, combined_data);
+            let (blocks, ec_blocks) =
+                correction::correction(version, &error_correction, combined_data);
             let result = interleave::interleave(blocks, ec_blocks, version);
 
             matrix_builder::build_qr_matrix(&mut matrix, version, &error_correction, result);
@@ -225,10 +233,6 @@ impl QRCode {
         }
 
         Ok(qr_codes)
-
-
-
-        
     }
 
     pub fn get(&self, x: usize, y: usize) -> bool {
@@ -264,7 +268,6 @@ impl QRCode {
         } else {
             (version - 41) * 2 + 11
         }
-        
     }
 
     pub fn print(&self) {

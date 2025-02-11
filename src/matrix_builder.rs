@@ -381,14 +381,10 @@ fn count_boxes(matrix: &QRCode) -> i32 {
     count
 }
 
-const PATTERN: [bool; 7] = [
-    true, false, true, true, true, false, true,
-];
-
+const PATTERN: [bool; 7] = [true, false, true, true, true, false, true];
 
 fn calculate_penalty_rule_3(matrix: &QRCode) -> i32 {
-    let penalty =
-        count_occurences(matrix, &PATTERN) * 40;
+    let penalty = count_occurences(matrix, &PATTERN) * 40;
 
     penalty
 }
