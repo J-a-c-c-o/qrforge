@@ -100,6 +100,7 @@ const REMAINDER_BITS: [[bool; 8]; 2] = [
     [false, false, false, true, false, false, false, true],
 ];
 
+
 pub(crate) fn build_combined_data(
     data: Vec<bool>,
     version: usize,
@@ -107,7 +108,9 @@ pub(crate) fn build_combined_data(
 ) -> Result<Vec<bool>, QRError> {
     let mut combined_data = vec![];
     
-    let data_codewords = lookup_data_codewords(version, error_correction) * 8;
+    let data_codewords = lookup_data_codewords(version, error_correction) * if version <= 40 { 8 } else { 1 };
+
+
 
     if data_codewords == 0 {
         return Err(QRError::new("Invalid version"));
@@ -131,21 +134,37 @@ pub(crate) fn build_combined_data(
         _ => panic!("Invalid version"),
     };
 
-    while combined_data.len() + terminator < data_codewords as usize && terminator < terminator_size {
+    println!("Data len: {}", combined_data.len());
+
+    while combined_data.len() < data_codewords as usize && terminator < terminator_size {
         combined_data.push(false);
         terminator += 1;
     }
 
-    // Add remainder bits so that the length is a multiple of 8
-    while combined_data.len() % 8 != 0 {
-        combined_data.push(false);
-    }
+
+    println!("Data codewords len: {}", combined_data.len());
+    
+    
+
+   
+
+    
 
     // Add remainder bits
-    let remainding_bytes = (data_codewords as usize - combined_data.len()) / 8;
+    if version <= 40 {
+         // Add remainder bits so that the length is a multiple of multiple
+        while combined_data.len() % 8 != 0 {
+            combined_data.push(false);
+        }
+        let remainding_bytes = (data_codewords as usize - combined_data.len()) / 8;
 
-    for i in 0..remainding_bytes {
-        combined_data.extend_from_slice(&REMAINDER_BITS[i % 2]);
+        for i in 0..remainding_bytes {
+            combined_data.extend_from_slice(&REMAINDER_BITS[i % 2]);
+        }
+    } else if version <= 44 {
+        while combined_data.len() < data_codewords as usize {
+            combined_data.push(false);
+        }
     }
     
     Ok(combined_data)
@@ -424,10 +443,10 @@ pub(crate) const DATA_CODEWORDS: [[u32; 4]; 44] = [
     [2956, 2334, 1666, 1276], // Version 40
 
     // micro versions
-    [3, 0, 0, 0], // micro v1
-    [5, 4, 0, 0], // micro v2
-    [11, 9, 0, 0], // micro v3
-    [16, 14, 10, 0] // micro v4
+    [20, 0, 0, 0], // micro v1
+    [40, 32, 0, 0], // micro v2
+    [84, 68, 0, 0], // micro v3
+    [128, 112, 80, 0] // micro v4
 ];
 
 fn lookup_data_codewords(version: usize, error_correction: &ErrorCorrection) -> u32 {

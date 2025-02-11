@@ -381,22 +381,19 @@ fn count_boxes(matrix: &QRCode) -> i32 {
     count
 }
 
-const PATTERN: [bool; 11] = [
-    true, false, true, true, true, false, true, false, false, false, false,
+const PATTERN: [bool; 7] = [
+    true, false, true, true, true, false, true,
 ];
 
-const REVERSED_PATTERN: [bool; 11] = [
-    false, false, false, false, true, false, true, true, true, false, true,
-];
 
 fn calculate_penalty_rule_3(matrix: &QRCode) -> i32 {
     let penalty =
-        count_occurences(matrix, &PATTERN) * 40 + count_occurences(matrix, &REVERSED_PATTERN) * 40;
+        count_occurences(matrix, &PATTERN) * 40;
 
     penalty
 }
 
-fn count_occurences(matrix: &QRCode, pattern: &[bool; 11]) -> i32 {
+fn count_occurences(matrix: &QRCode, pattern: &[bool; 7]) -> i32 {
     // maybe use bit manipulation
     let mut count = 0;
     let dimension = matrix.dimension();

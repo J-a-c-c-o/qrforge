@@ -3,6 +3,7 @@ mod encode;
 mod error;
 mod interleave;
 mod matrix_builder;
+mod matrix_builder_micro;
 mod mode_selector;
 use error::QRError;
 mod image;
@@ -96,11 +97,10 @@ impl QRCode {
                     return Err(QRError::new("Invalid version"));
                 }
             }
-            Version::M(_v) => {
-                return Err(QRError::new("Invalid version"));
-                // if v < 1 || v > 4 {
-                //     return Err(QRError::new("Invalid version"));
-                // }
+            Version::M(v) => {
+                if v < 1 || v > 4 {
+                    return Err(QRError::new("Invalid version"));
+                }
             }
         }
 
@@ -126,12 +126,18 @@ impl QRCode {
 
         let combined_data = encode::build_combined_data(combined_data, version, &error_correction)?;
 
+
     
         
         let (blocks, ec_blocks) = correction::correction(version, &error_correction, combined_data);
         let result = interleave::interleave(blocks, ec_blocks, version);
 
-        matrix_builder::build_qr_matrix(&mut matrix, version, &error_correction, result);
+        match version {
+            1..=40 => matrix_builder::build_qr_matrix(&mut matrix, version, &error_correction, result),
+            41..=44 => matrix_builder_micro::build_qr_matrix(&mut matrix, version, &error_correction, result),
+            _ => return Err(QRError::new("Invalid version")),
+        };
+        
 
         Ok(matrix)
     }
@@ -149,11 +155,9 @@ impl QRCode {
                     return Err(QRError::new("Invalid version"));
                 }
             }
-            Version::M(_v) => {
-                return Err(QRError::new("Invalid version"));
-                // if v < 1 || v > 4 {
-                //     return Err(QRError::new("Invalid version"));
-                // }
+            Version::M(_) => {
+                return Err(QRError::new("Structured append is not supported for micro QR codes"));
+
             }
         }
 
@@ -255,7 +259,12 @@ impl QRCode {
     }
 
     fn calculate_dimension(version: usize) -> usize {
-        (version - 1) * 4 + 21
+        if version >= 1 && version <= 40 {
+            (version - 1) * 4 + 21
+        } else {
+            (version - 41) * 2 + 11
+        }
+        
     }
 
     pub fn print(&self) {
@@ -344,12 +353,12 @@ fn main() -> Result<(), QRError> {
     let start = std::time::Instant::now();
 
     // Japanese text "こんにちは" (Hello) in Shift-JIS encoding;
-    let kanji = vec![0x93, 0xfa, 0x96, 0x7b, 0x82, 0xcc, 0x82, 0xc1, 0x82, 0xbd];
-    let utf8: Vec<u8> = vec![255, 61];
-    let bytes = b"Hello world";
+    let _kanji = vec![0x93, 0xfa, 0x96, 0x7b, 0x82, 0xcc, 0x82, 0xc1, 0x82, 0xbd];
+    let _utf8: Vec<u8> = vec![255, 61];
+    let _bytes = b"Hello world";
     // 7089 numbers
     let mut numbers = vec![];
-    for i in 0..7084 {
+    for i in 0..35 {
         numbers.push((i % 10) as u8 + 48);
     }
 
@@ -366,19 +375,19 @@ fn main() -> Result<(), QRError> {
     //     // .build_svg_file("hello.svg")?;
 
     let _qr_code = QRCode::builder()
-        .add_segment(Some(Mode::Kanji), &kanji)
-        .add_segment(None, bytes)
-        .add_segment(Some(Mode::Alphanumeric), b"HELLO ")
-        .add_segment(Some(Mode::Numeric), b"123456")
-        .add_segment(Some(Mode::ECI(3)), &utf8)
-        .error_correction(ErrorCorrection::H)
-        .version(Version::V(5))
+        // .add_segment(Some(Mode::Kanji), &kanji)
+        // .add_segment(None, bytes)
+        // .add_segment(Some(Mode::Alphanumeric), b"HELLO ")
+        .add_segment(Some(Mode::Numeric), &numbers)
+        // .add_segment(Some(Mode::ECI(3)), &utf8)
+        .error_correction(ErrorCorrection::L)
+        .version(Version::M(4))
         .build()?
         .image_builder()
         .set_width(200)
         .set_height(200)
         .set_border(4)
-        .build_svg_file("hello_japanese.svg")?;
+        .build_image_file("hello_japanese.png")?;
 
     // let structured = QRCode::builder()
     //     .add_segment(None, b"Hello")
