@@ -1,4 +1,7 @@
-use crate::{encode, ErrorCorrection, Mode, QRError, Version};
+use crate::{
+    constants::{ALPHANUMERIC, DATA_CODEWORDS},
+    encode, ErrorCorrection, Mode, QRError, Version,
+};
 
 pub(crate) fn select_mode(data: &[u8]) -> Mode {
     if data.iter().all(|&c| c >= b'0' && c <= b'9') {
@@ -9,12 +12,6 @@ pub(crate) fn select_mode(data: &[u8]) -> Mode {
         Mode::Byte
     }
 }
-
-const ALPHANUMERIC: [char; 45] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I',
-    'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', ' ', '$',
-    '%', '*', '+', '-', '.', '/', ':',
-];
 
 pub(crate) fn get_version(
     segments: &Vec<(Mode, Vec<u8>)>,
@@ -39,7 +36,7 @@ pub(crate) fn get_version(
             data_size += 20; // 20 bits for the mode indicator and character count indicator
         }
 
-        let capacity = crate::encode::DATA_CODEWORDS[i][error_correction.to_value()] * 8;
+        let capacity = DATA_CODEWORDS[i][error_correction.to_value()] * 8;
 
         if data_size <= capacity as usize {
             return Ok(Version::V(i + 1));

@@ -1,4 +1,8 @@
-use crate::{error::QRError, ErrorCorrection, Mode};
+use crate::{
+    constants::{DATA_CODEWORDS, REMAINDER_BITS},
+    error::QRError,
+    ErrorCorrection, Mode,
+};
 
 pub(crate) fn encode_segment(version: usize, mode: &Mode, bytes: &[u8]) -> Vec<bool> {
     match mode {
@@ -80,12 +84,6 @@ pub(crate) fn encode_structured_append(
 
     build_combined_data(structured_append, version, error_correction)
 }
-
-// remaining bits 11101100 00010001
-const REMAINDER_BITS: [[bool; 8]; 2] = [
-    [true, true, true, false, true, true, false, false],
-    [false, false, false, true, false, false, false, true],
-];
 
 pub(crate) fn build_combined_data(
     data: Vec<bool>,
@@ -371,54 +369,6 @@ fn get_alphanumeric_index(c: char) -> u32 {
         _ => 0,
     }
 }
-
-pub(crate) const DATA_CODEWORDS: [[u32; 4]; 44] = [
-    [19, 16, 13, 9],          // Version 1
-    [34, 28, 22, 16],         // Version 2
-    [55, 44, 34, 26],         // Version 3
-    [80, 64, 48, 36],         // Version 4
-    [108, 86, 62, 46],        // Version 5
-    [136, 108, 76, 60],       // Version 6
-    [156, 124, 88, 66],       // Version 7
-    [194, 154, 110, 86],      // Version 8
-    [232, 182, 132, 100],     // Version 9
-    [274, 216, 154, 122],     // Version 10
-    [324, 254, 180, 140],     // Version 11
-    [370, 290, 206, 158],     // Version 12
-    [428, 334, 244, 180],     // Version 13
-    [461, 365, 261, 197],     // Version 14
-    [523, 415, 295, 223],     // Version 15
-    [589, 453, 325, 253],     // Version 16
-    [647, 507, 367, 283],     // Version 17
-    [721, 563, 397, 313],     // Version 18
-    [795, 627, 445, 341],     // Version 19
-    [861, 669, 485, 385],     // Version 20
-    [932, 714, 512, 406],     // Version 21
-    [1006, 782, 568, 442],    // Version 22
-    [1094, 860, 614, 464],    // Version 23
-    [1174, 914, 664, 514],    // Version 24
-    [1276, 1000, 718, 538],   // Version 25
-    [1370, 1062, 754, 596],   // Version 26
-    [1468, 1128, 808, 628],   // Version 27
-    [1531, 1193, 871, 661],   // Version 28
-    [1631, 1267, 911, 701],   // Version 29
-    [1735, 1373, 985, 745],   // Version 30
-    [1843, 1455, 1033, 793],  // Version 31
-    [1955, 1541, 1115, 845],  // Version 32
-    [2071, 1631, 1171, 901],  // Version 33
-    [2191, 1725, 1231, 961],  // Version 34
-    [2306, 1812, 1286, 986],  // Version 35
-    [2434, 1914, 1354, 1054], // Version 36
-    [2566, 1992, 1426, 1096], // Version 37
-    [2702, 2102, 1502, 1142], // Version 38
-    [2812, 2216, 1582, 1222], // Version 39
-    [2956, 2334, 1666, 1276], // Version 40
-    // micro versions
-    [20, 0, 0, 0],     // micro v1
-    [40, 32, 0, 0],    // micro v2
-    [84, 68, 0, 0],    // micro v3
-    [128, 112, 80, 0], // micro v4
-];
 
 fn lookup_data_codewords(version: usize, error_correction: &ErrorCorrection) -> u32 {
     // Error correction index mapping

@@ -1,3 +1,5 @@
+use crate::constants::REMAINING_BITS;
+
 pub(crate) fn interleave(
     blocks: Vec<Vec<Vec<bool>>>,
     ec_blocks: Vec<Vec<Vec<bool>>>,
@@ -46,8 +48,3 @@ fn get_remainder_bits(version: usize) -> Vec<bool> {
     }
     result
 }
-
-const REMAINING_BITS: [u32; 44] = [
-    0, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3,
-    3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-];

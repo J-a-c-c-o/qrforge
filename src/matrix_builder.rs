@@ -1,4 +1,10 @@
-use crate::{ErrorCorrection, QRCode};
+use crate::{
+    constants::{
+        ALIGNMENT_PATTERN, ALIGNMENT_PATTERN_LOCATION, FINDER_PATTERN, FORMAT_INFORMATION, PATTERN,
+        VERSION_INFORMATION,
+    },
+    ErrorCorrection, QRCode,
+};
 use rayon::prelude::*;
 
 pub(crate) fn build_qr_matrix(
@@ -25,16 +31,6 @@ pub(crate) fn build_qr_matrix(
     apply_format_version_information(matrix, version, error_correction, mask);
 }
 
-const FINDER_PATTERN: [[bool; 7]; 7] = [
-    [true, true, true, true, true, true, true],
-    [true, false, false, false, false, false, true],
-    [true, false, true, true, true, false, true],
-    [true, false, true, true, true, false, true],
-    [true, false, true, true, true, false, true],
-    [true, false, false, false, false, false, true],
-    [true, true, true, true, true, true, true],
-];
-
 fn add_finder_patterns(matrix: &mut QRCode) {
     let dimension = matrix.dimension();
 
@@ -59,14 +55,6 @@ fn add_seperators(matrix: &mut QRCode) {
         matrix.set(7, dimension - 1 - i, false);
     }
 }
-
-const ALIGNMENT_PATTERN: [[bool; 5]; 5] = [
-    [true, true, true, true, true],
-    [true, false, false, false, true],
-    [true, false, true, false, true],
-    [true, false, false, false, true],
-    [true, true, true, true, true],
-];
 
 fn add_alignment_patterns(matrix: &mut QRCode, version: usize) {
     let alignment_location = get_alignment_location(version);
@@ -381,8 +369,6 @@ fn count_boxes(matrix: &QRCode) -> i32 {
     count
 }
 
-const PATTERN: [bool; 7] = [true, false, true, true, true, false, true];
-
 fn calculate_penalty_rule_3(matrix: &QRCode) -> i32 {
     let penalty = count_occurences(matrix, &PATTERN) * 40;
 
@@ -562,91 +548,6 @@ fn get_alignment_location(version: usize) -> Vec<(usize, usize)> {
     alignment_pattern
 }
 
-const ALIGNMENT_PATTERN_LOCATION: [&[usize]; 39] = [
-    &[6, 18],
-    &[6, 22],
-    &[6, 26],
-    &[6, 30],
-    &[6, 34],
-    &[6, 22, 38],
-    &[6, 24, 42],
-    &[6, 26, 46],
-    &[6, 28, 50],
-    &[6, 30, 54],
-    &[6, 32, 58],
-    &[6, 34, 62],
-    &[6, 26, 46, 66],
-    &[6, 26, 48, 70],
-    &[6, 26, 50, 74],
-    &[6, 30, 54, 78],
-    &[6, 30, 56, 82],
-    &[6, 30, 58, 86],
-    &[6, 34, 62, 90],
-    &[6, 28, 50, 72, 94],
-    &[6, 26, 50, 74, 98],
-    &[6, 30, 54, 78, 102],
-    &[6, 28, 54, 80, 106],
-    &[6, 32, 58, 84, 110],
-    &[6, 30, 58, 86, 114],
-    &[6, 34, 62, 90, 118],
-    &[6, 26, 50, 74, 98, 122],
-    &[6, 30, 54, 78, 102, 126],
-    &[6, 26, 52, 78, 104, 130],
-    &[6, 30, 56, 82, 108, 134],
-    &[6, 34, 60, 86, 112, 138],
-    &[6, 30, 58, 86, 114, 142],
-    &[6, 34, 62, 90, 118, 146],
-    &[6, 30, 54, 78, 102, 126, 150],
-    &[6, 24, 50, 76, 102, 128, 154],
-    &[6, 28, 54, 80, 106, 132, 158],
-    &[6, 32, 58, 84, 110, 136, 162],
-    &[6, 26, 54, 82, 110, 138, 166],
-    &[6, 30, 58, 86, 114, 142, 170],
-];
-
-const FORMAT_INFORMATION: [[&str; 8]; 4] = [
-    [
-        "111011111000100",
-        "111001011110011",
-        "111110110101010",
-        "111100010011101",
-        "110011000101111",
-        "110001100011000",
-        "110110001000001",
-        "110100101110110",
-    ],
-    [
-        "101010000010010",
-        "101000100100101",
-        "101111001111100",
-        "101101101001011",
-        "100010111111001",
-        "100000011001110",
-        "100111110010111",
-        "100101010100000",
-    ],
-    [
-        "011010101011111",
-        "011000001101000",
-        "011111100110001",
-        "011101000000110",
-        "010010010110100",
-        "010000110000011",
-        "010111011011010",
-        "010101111101101",
-    ],
-    [
-        "001011010001001",
-        "001001110111110",
-        "001110011100111",
-        "001100111010000",
-        "000011101100010",
-        "000001001010101",
-        "000110100001100",
-        "000100000111011",
-    ],
-];
-
 fn get_format_information(error_correction: &ErrorCorrection, mask: u32) -> Vec<bool> {
     let ec_level = error_correction.to_value();
 
@@ -660,43 +561,6 @@ fn get_format_information(error_correction: &ErrorCorrection, mask: u32) -> Vec<
 
     format_information
 }
-
-const VERSION_INFORMATION: [&str; 34] = [
-    "000111110010010100",
-    "001000010110111100",
-    "001001101010011001",
-    "001010010011010011",
-    "001011101111110110",
-    "001100011101100010",
-    "001101100001000111",
-    "001110011000001101",
-    "001111100100101000",
-    "010000101101111000",
-    "010001010001011101",
-    "010010101000010111",
-    "010011010100110010",
-    "010100100110100110",
-    "010101011010000011",
-    "010110100011001001",
-    "010111011111101100",
-    "011000111011000100",
-    "011001000111100001",
-    "011010111110101011",
-    "011011000010001110",
-    "011100110000011010",
-    "011101001100111111",
-    "011110110101110101",
-    "011111001001010000",
-    "100000100111010101",
-    "100001011011110000",
-    "100010100010111010",
-    "100011011110011111",
-    "100100101100001011",
-    "100101010000101110",
-    "100110101001100100",
-    "100111010101000001",
-    "101000110001101001",
-];
 
 fn get_version_information(version: usize) -> Vec<bool> {
     let version_info = VERSION_INFORMATION[version - 7];

@@ -6,6 +6,7 @@ mod matrix_builder;
 mod matrix_builder_micro;
 mod mode_selector;
 use error::QRError;
+mod constants;
 mod image;
 
 pub struct QRCode {
@@ -45,7 +46,6 @@ impl QRBuilder {
         } else {
             self.segments
                 .push((mode_selector::select_mode(&bytes), bytes.to_vec()));
-            // self.segments.push((Mode::Byte, bytes.to_vec()));
         }
         self
     }

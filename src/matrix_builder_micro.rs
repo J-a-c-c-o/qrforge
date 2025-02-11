@@ -1,4 +1,7 @@
-use crate::{ErrorCorrection, QRCode};
+use crate::{
+    constants::{FINDER_PATTERN, FORMAT_INFO_MICRO, MICRO_MAPPING},
+    ErrorCorrection, QRCode,
+};
 use rayon::prelude::*;
 
 pub(crate) fn build_qr_matrix(
@@ -20,16 +23,6 @@ pub(crate) fn build_qr_matrix(
     let mask = apply_mask(matrix, data_coordinates);
     apply_format_version_information(matrix, version, error_correction, mask);
 }
-
-const FINDER_PATTERN: [[bool; 7]; 7] = [
-    [true, true, true, true, true, true, true],
-    [true, false, false, false, false, false, true],
-    [true, false, true, true, true, false, true],
-    [true, false, true, true, true, false, true],
-    [true, false, true, true, true, false, true],
-    [true, false, false, false, false, false, true],
-    [true, true, true, true, true, true, true],
-];
 
 fn add_finder_patterns(matrix: &mut QRCode) {
     for i in 0..7 {
@@ -217,14 +210,6 @@ fn apply_format_version_information(
         format_information_index += 1;
     }
 }
-
-const FORMAT_INFO_MICRO: [u16; 32] = [
-    0x4445, 0x4172, 0x4e2b, 0x4b1c, 0x55ae, 0x5099, 0x5fc0, 0x5af7, 0x6793, 0x62a4, 0x6dfd, 0x68ca,
-    0x7678, 0x734f, 0x7c16, 0x7921, 0x06de, 0x03e9, 0x0cb0, 0x0987, 0x1735, 0x1202, 0x1d5b, 0x186c,
-    0x2508, 0x203f, 0x2f66, 0x2a51, 0x34e3, 0x31d4, 0x3e8d, 0x3bba,
-];
-
-const MICRO_MAPPING: [[u32; 4]; 4] = [[0, 0, 0, 0], [1, 2, 0, 0], [3, 4, 0, 0], [5, 6, 7, 0]];
 
 fn get_format_information(
     error_correction: &ErrorCorrection,
