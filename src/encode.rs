@@ -1,10 +1,8 @@
 use crate::{
-    constants::{DATA_CODEWORDS, REMAINDER_BITS},
-    error::QRError,
-    ErrorCorrection, Mode,
+    constants::REMAINDER_BITS, error::QRError, utils, ErrorCorrection, Mode
 };
 
-pub(crate) fn encode_segment(version: usize, mode: &Mode, bytes: &[u8]) -> Vec<bool> {
+pub(crate) fn encode_segment(version: usize, mode: &Mode, bytes: &[u8]) -> (Vec<bool>, Vec<bool>) {
     match mode {
         Mode::ECI(_) => {
             let eci_bit_count = get_bit_count(version, mode);
@@ -16,15 +14,14 @@ pub(crate) fn encode_segment(version: usize, mode: &Mode, bytes: &[u8]) -> Vec<b
             let size = get_size(bytes, bit_count, &Mode::Byte);
             let data = get_data(bytes, &Mode::Byte);
 
-            let mut combined = vec![];
-            combined.extend_from_slice(&eci_mode_indicator);
-            combined.extend_from_slice(&eci_size);
+            let mut mode = vec![];
+            mode.extend_from_slice(&eci_mode_indicator);
+            mode.extend_from_slice(&eci_size);
 
-            combined.extend_from_slice(&mode_indicator);
-            combined.extend_from_slice(&size);
-            combined.extend_from_slice(&data);
+            mode.extend_from_slice(&mode_indicator);
+            mode.extend_from_slice(&size);
 
-            combined
+            (mode, data)
         }
 
         _ => {
@@ -32,57 +29,14 @@ pub(crate) fn encode_segment(version: usize, mode: &Mode, bytes: &[u8]) -> Vec<b
             let mode_indicator = get_mode(mode, version);
             let size = get_size(bytes, bit_count, mode);
             let data = get_data(bytes, mode);
-            build_segment(mode_indicator, size, data)
+            
+            let mut mode = vec![];
+            mode.extend_from_slice(&mode_indicator);
+            mode.extend_from_slice(&size);
+
+            (mode, data)
         }
     }
-}
-
-pub(crate) fn encode_structured_append(
-    version: usize,
-    mode: &Mode,
-    error_correction: &ErrorCorrection,
-    index: usize,
-    total: usize,
-    bytes: &[u8],
-    parity: u8,
-) -> Result<Vec<bool>, QRError> {
-    let data = encode_segment(version, mode, bytes);
-
-    // now add the structured append header
-    let mut structured_append = vec![];
-    let mode_indicator: [bool; 4] = [false, false, true, true];
-    let index_bits: [bool; 4] = [
-        (index >> 3) & 1 == 1,
-        (index >> 2) & 1 == 1,
-        (index >> 1) & 1 == 1,
-        index & 1 == 1,
-    ];
-
-    let total_bits: [bool; 4] = [
-        (total >> 3) & 1 == 1,
-        (total >> 2) & 1 == 1,
-        (total >> 1) & 1 == 1,
-        total & 1 == 1,
-    ];
-
-    let parity_bits: [bool; 8] = [
-        (parity >> 7) & 1 == 1,
-        (parity >> 6) & 1 == 1,
-        (parity >> 5) & 1 == 1,
-        (parity >> 4) & 1 == 1,
-        (parity >> 3) & 1 == 1,
-        (parity >> 2) & 1 == 1,
-        (parity >> 1) & 1 == 1,
-        parity & 1 == 1,
-    ];
-
-    structured_append.extend_from_slice(&mode_indicator);
-    structured_append.extend_from_slice(&index_bits);
-    structured_append.extend_from_slice(&total_bits);
-    structured_append.extend_from_slice(&parity_bits);
-    structured_append.extend_from_slice(&data);
-
-    build_combined_data(structured_append, version, error_correction)
 }
 
 pub(crate) fn build_combined_data(
@@ -93,7 +47,7 @@ pub(crate) fn build_combined_data(
     let mut combined_data = vec![];
 
     let data_codewords =
-        lookup_data_codewords(version, error_correction) * if version <= 40 { 8 } else { 1 };
+        utils::get_available_data_size(version, error_correction) as usize;
 
     if data_codewords == 0 {
         return Err(QRError::new("Invalid version"));
@@ -117,14 +71,11 @@ pub(crate) fn build_combined_data(
         _ => panic!("Invalid version"),
     };
 
-    println!("Data len: {}", combined_data.len());
 
     while combined_data.len() < data_codewords as usize && terminator < terminator_size {
         combined_data.push(false);
         terminator += 1;
     }
-
-    println!("Data codewords len: {}", combined_data.len());
 
     // Add remainder bits
     if version <= 40 {
@@ -146,20 +97,7 @@ pub(crate) fn build_combined_data(
     Ok(combined_data)
 }
 
-fn build_segment(mode_indicator: Vec<bool>, size: Vec<bool>, data: Vec<bool>) -> Vec<bool> {
-    let mut segment = vec![];
 
-    // Add mode indicator
-    segment.extend_from_slice(&mode_indicator);
-
-    // Add size
-    segment.extend_from_slice(&size);
-
-    // Add data
-    segment.extend_from_slice(&data);
-
-    segment
-}
 
 fn get_bit_count(version: usize, mode: &Mode) -> u32 {
     match mode {
@@ -370,20 +308,4 @@ fn get_alphanumeric_index(c: char) -> u32 {
     }
 }
 
-fn lookup_data_codewords(version: usize, error_correction: &ErrorCorrection) -> u32 {
-    // Error correction index mapping
 
-    let ec_index = match error_correction {
-        ErrorCorrection::L => 0,
-        ErrorCorrection::M => 1,
-        ErrorCorrection::Q => 2,
-        ErrorCorrection::H => 3,
-    };
-
-    // Validate version range and return corresponding value
-    if version >= 1 && version <= 44 {
-        DATA_CODEWORDS[version - 1][ec_index]
-    } else {
-        panic!("Invalid version");
-    }
-}

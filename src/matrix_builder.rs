@@ -394,7 +394,7 @@ fn count_occurences(matrix: &QRCode, pattern: &[bool; 7]) -> i32 {
                 current_count = 0;
             }
 
-            if current_count == 11 {
+            if current_count == 7 {
                 count += 1;
                 current = 0;
                 current_count = 0;
@@ -416,7 +416,7 @@ fn count_occurences(matrix: &QRCode, pattern: &[bool; 7]) -> i32 {
                 current_count = 0;
             }
 
-            if current_count == 11 {
+            if current_count == 7 {
                 count += 1;
                 current = 0;
                 current_count = 0;
