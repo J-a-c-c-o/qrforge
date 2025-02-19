@@ -96,7 +96,7 @@ impl QRCode {
                 }
             }
             Version::M(v) => {
-                if v < 1 || v > 4 {
+                if v < 1 || v > 5 {
                     return Err(QRError::new("Invalid version"));
                 }
             }
@@ -174,13 +174,6 @@ impl QRCode {
             return Err(QRError::new("No segments provided"));
         }
 
-        // parity is xored with the data
-        let mut parity: u8 = 0;
-        for (_, bytes) in segments {
-            for byte in bytes {
-                parity ^= byte;
-            }
-        }
 
         let builded_segments = segments
             .iter()
@@ -190,23 +183,44 @@ impl QRCode {
             })
             .collect::<Vec<(Vec<bool>, Vec<bool>)>>();
 
+        let mut parity: u8 = 0;
+        for (_, data) in &builded_segments {
+            let bytes = utils::bits_to_bytes(data);
+            for byte in bytes {
+                parity ^= byte;
+            }
+        }
 
         let max_size = utils::get_available_data_size(version, &error_correction) as usize;
 
         let mut chunks = vec![];
         let mut current_length = 20; // structual append header
         let mut current_segments = vec![];
+        let mut eci = None;
 
-        for (mode, data) in builded_segments {
-            let length = mode.len() + data.len();
-            if current_length + length > max_size {
-                chunks.push(current_segments);
-                current_segments = vec![];
-                current_length = 20; // structual append header
+        for (mode, data) in builded_segments.iter() {
+            let mut segment = mode.clone();
+            segment.extend_from_slice(data);
+
+            if utils::is_eci(&segment) {
+                eci = Some(segment.clone());
             }
 
-            current_segments.push((mode, data));
-            current_length += length;
+
+            if segment.len() + current_length > max_size {
+                chunks.push(current_segments);
+                current_segments = vec![];
+                if eci.is_some() {
+                    current_segments.extend_from_slice(&eci.clone().unwrap());
+                }
+                current_segments.extend_from_slice(&segment);
+                current_length = 20 + current_segments.len();
+
+            } else {
+                current_segments.extend_from_slice(&segment);
+                current_length += segment.len();
+            }
+
         }
 
         if !current_segments.is_empty() {
@@ -257,10 +271,8 @@ impl QRCode {
             combined_data.extend_from_slice(&total_bits);
             combined_data.extend_from_slice(&parity_bits);
 
-            for (mode, data) in segments {
-                combined_data.extend_from_slice(&mode);
-                combined_data.extend_from_slice(&data);
-            }
+
+           combined_data.extend_from_slice(&segments);
 
             let maybe_combined_data = encode::build_combined_data(combined_data, version, &error_correction);
 
@@ -425,9 +437,9 @@ fn main() -> Result<(), QRError> {
     let start = std::time::Instant::now();
 
     // Japanese text "こんにちは" (Hello) in Shift-JIS encoding;
-    let _kanji = vec![0x93, 0xfa, 0x96, 0x7b, 0x82, 0xcc, 0x82, 0xc1, 0x82, 0xbd];
-    let _utf8: Vec<u8> = vec![255, 61];
-    let _bytes = b"Hello world";
+    let kanji = vec![0x93, 0xfa, 0x96, 0x7b, 0x82, 0xcc, 0x82, 0xc1, 0x82, 0xbd];
+    let utf8: Vec<u8> = vec![255, 61];
+    let bytes = b"Hello world";
     // 7089 numbers
     let mut numbers = vec![];
     for i in 0..35 {
@@ -447,26 +459,25 @@ fn main() -> Result<(), QRError> {
     //     // .build_svg_file("hello.svg")?;
 
     // let _qr_code = QRCode::builder()
-    //     // .add_segment(Some(Mode::Kanji), &kanji)
-    //     // .add_segment(None, bytes)
-    //     // .add_segment(Some(Mode::Alphanumeric), b"HELLO ")
+    //     .add_segment(Some(Mode::Kanji), &kanji)
+    //     .add_segment(None, bytes)
+    //     .add_segment(Some(Mode::Alphanumeric), b"HELLO ")
     //     .add_segment(Some(Mode::Numeric), &numbers)
-    //     // .add_segment(Some(Mode::ECI(3)), &utf8)
+    //     .add_segment(Some(Mode::ECI(3)), &utf8)
     //     .error_correction(ErrorCorrection::L)
-    //     .version(Version::M(4))
+    //     .version(Version::V(5))
     //     .build()?
     //     .image_builder()
     //     .set_width(200)
     //     .set_height(200)
     //     .set_border(4)
-    //     .build_image_file("hello_japanese.png")?;
+    //     .build_image_file("hello_0.png")?;
 
     let structured = QRCode::builder()
-        .add_segment(None, b"HelloWorl")
-        .add_segment(None, b"World")
-        .add_segment(None, b"!")
-        .error_correction(ErrorCorrection::H)
-        .version(Version::V(2))
+        .add_segment(Some(Mode::Byte), b"I read the ")
+        .add_segment(Some(Mode::Byte), b"today oh boy")
+        .error_correction(ErrorCorrection::L)
+        .version(Version::V(1))
         .build_with_structual_append()?;
 
     for (index, qr_code) in structured.iter().enumerate() {
