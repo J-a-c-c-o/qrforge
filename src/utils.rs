@@ -1,16 +1,12 @@
-use crate::{constants::DATA_CODEWORDS, ErrorCorrection};
+use crate::{constants::DATA_CODEWORDS, ErrorCorrection, Mode};
 
-pub(crate) fn get_available_data_size(
-    version: usize,
-    error_correction: &ErrorCorrection,
-) -> u32 {
+pub(crate) fn get_available_data_size(version: usize, error_correction: &ErrorCorrection) -> u32 {
     if version > 44 {
         panic!("Invalid version");
     }
 
     DATA_CODEWORDS[version - 1][error_correction.to_value()] * if version <= 40 { 8 } else { 0 }
 }
-
 
 pub(crate) fn bits_to_bytes(data: &[bool]) -> Vec<u8> {
     let mut bytes = vec![];
@@ -28,7 +24,25 @@ pub(crate) fn bits_to_bytes(data: &[bool]) -> Vec<u8> {
     bytes
 }
 
-pub(crate) fn is_eci(data: &[bool]) -> bool {
-    // check if the first 4 bits are 0111
-    data.len() >= 4 && data[0..4] == [false, true, true, true]
+pub(crate) fn num_of_bits(mode: &Mode, bytes: usize) -> usize {
+    match mode {
+        Mode::Numeric => match bytes % 3 {
+            0 => bytes / 3 * 10,
+            1 => (bytes / 3) * 10 + 4,
+            2 => (bytes / 3) * 10 + 7,
+            _ => panic!("Invalid number of bytes"),
+        },
+
+        Mode::Alphanumeric => match bytes % 2 {
+            0 => bytes / 2 * 11,
+            1 => (bytes / 2) * 11 + 6,
+            _ => panic!("Invalid number of bytes"),
+        },
+
+        Mode::Byte => bytes * 8,
+
+        Mode::Kanji => bytes * 13,
+
+        Mode::ECI(_) => 0,
+    }
 }

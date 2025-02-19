@@ -10,6 +10,8 @@ mod constants;
 mod image;
 mod utils;
 
+use std::collections::VecDeque;
+
 pub struct QRCode {
     matrix: Vec<bool>,
     some_matrix: Vec<bool>,
@@ -51,6 +53,11 @@ impl QRBuilder {
         self
     }
 
+    pub fn put_eci(mut self, eci: usize) -> Self {
+        self.segments.push((Mode::ECI(eci), vec![]));
+        self
+    }
+
     pub fn build(self) -> Result<QRCode, QRError> {
         let error_correction = self.error_correction.unwrap_or(ErrorCorrection::M);
         let segments = mode_selector::optimize_segments(&self.segments);
@@ -65,13 +72,14 @@ impl QRBuilder {
 
     pub fn build_with_structual_append(self) -> Result<Vec<QRCode>, QRError> {
         let error_correction = self.error_correction.unwrap_or(ErrorCorrection::M);
+        let segments = mode_selector::optimize_segments(&self.segments);
 
         let version = match self.version {
             Some(v) => v,
             None => return Err(QRError::new("Version is required for structured append")),
         };
 
-        QRCode::build_with_structual_append(version, error_correction, &self.segments)
+        QRCode::build_with_structual_append(version, error_correction, &segments)
     }
 }
 
@@ -169,64 +177,100 @@ impl QRCode {
 
         let dimension = Self::calculate_dimension(version);
 
-
         if segments.is_empty() {
             return Err(QRError::new("No segments provided"));
         }
 
-
-        let builded_segments = segments
-            .iter()
-            .map(|(mode, bytes)| {
-                let (mode, data) = encode::encode_segment(version, mode, bytes);
-                (mode, data)
-            })
-            .collect::<Vec<(Vec<bool>, Vec<bool>)>>();
-
-        let mut parity: u8 = 0;
-        for (_, data) in &builded_segments {
-            let bytes = utils::bits_to_bytes(data);
-            for byte in bytes {
-                parity ^= byte;
-            }
-        }
-
-        let max_size = utils::get_available_data_size(version, &error_correction) as usize;
+        let max_size = utils::get_available_data_size(version, &error_correction) as usize - 20;
 
         let mut chunks = vec![];
-        let mut current_length = 20; // structual append header
-        let mut current_segments = vec![];
+        let mut current_chunk = vec![];
+        let mut current_size = 0;
         let mut eci = None;
 
-        for (mode, data) in builded_segments.iter() {
-            let mut segment = mode.clone();
-            segment.extend_from_slice(data);
+        let mut parity = 0;
 
-            if utils::is_eci(&segment) {
-                eci = Some(segment.clone());
-            }
+        let mut mutable_segments: VecDeque<(Mode, Vec<u8>)> = segments.to_vec().into();
 
+        while let Some((mode, data)) = mutable_segments.pop_front() {
+            let (mode_b, data_b) = encode::encode_segment(version, &mode, &data);
 
-            if segment.len() + current_length > max_size {
-                chunks.push(current_segments);
-                current_segments = vec![];
-                if eci.is_some() {
-                    current_segments.extend_from_slice(&eci.clone().unwrap());
+            match mode {
+                Mode::ECI(_) => {
+                    eci = Some(mode_b);
+                    continue;
                 }
-                current_segments.extend_from_slice(&segment);
-                current_length = 20 + current_segments.len();
-
-            } else {
-                current_segments.extend_from_slice(&segment);
-                current_length += segment.len();
+                _ => {}
             }
 
+            let size = mode_b.len() + data_b.len();
+
+            if current_size + mode_b.len() >= max_size {
+                chunks.push(current_chunk);
+                current_chunk = vec![];
+                if let Some(eci) = eci.clone() {
+                    current_chunk.extend_from_slice(&eci);
+                }
+                current_size = current_chunk.len();
+
+                mutable_segments.insert(0, (mode, data));
+            } else if current_size + size > max_size {
+                // split the data
+                // calculate how many data we can fit
+                let mut left_data = vec![];
+                let mut left_size = mode_b.len();
+
+                let mut right_data = vec![];
+                let chunk_size = match mode {
+                    Mode::Kanji => 2,
+                    Mode::Numeric => 3,
+                    Mode::Alphanumeric => 2,
+                    Mode::Byte => 1,
+                    _ => 1,
+                };
+
+                for words in data.chunks(chunk_size) {
+                    let num_of_bits = utils::num_of_bits(&mode, words.len());
+
+                    if left_size + num_of_bits <= max_size {
+                        left_data.extend_from_slice(words);
+                        left_size += num_of_bits;
+                    } else {
+                        right_data.extend_from_slice(words);
+                    }
+                }
+
+                let (left_mode, left_data) = encode::encode_segment(version, &mode, &left_data);
+
+                current_chunk.extend_from_slice(&left_mode);
+                current_chunk.extend_from_slice(&left_data);
+
+                chunks.push(current_chunk);
+
+                current_chunk = vec![];
+
+                if let Some(eci) = eci.clone() {
+                    current_chunk.extend_from_slice(&eci);
+                }
+
+                current_size = current_chunk.len();
+
+                mutable_segments.insert(0, (mode, right_data));
+            } else {
+                current_chunk.extend_from_slice(&mode_b);
+                current_chunk.extend_from_slice(&data_b);
+
+                for byte in utils::bits_to_bytes(&data_b) {
+                    parity ^= byte;
+                }
+
+                current_size += size;
+            }
         }
 
-        if !current_segments.is_empty() {
-            chunks.push(current_segments);
+        if !current_chunk.is_empty() {
+            chunks.push(current_chunk);
         }
-
 
         let mut qr_codes = vec![];
 
@@ -241,7 +285,7 @@ impl QRCode {
 
             // add structual append header
             let mode = [false, false, true, true];
-            let index_bits =[ 
+            let index_bits = [
                 (index >> 3) & 1 == 1,
                 (index >> 2) & 1 == 1,
                 (index >> 1) & 1 == 1,
@@ -255,7 +299,8 @@ impl QRCode {
                 (chunks.len() >> 0) & 1 == 1,
             ];
 
-            let parity_bits= [ // 8 bits
+            let parity_bits = [
+                // 8 bits
                 (parity >> 7) & 1 == 1,
                 (parity >> 6) & 1 == 1,
                 (parity >> 5) & 1 == 1,
@@ -271,17 +316,18 @@ impl QRCode {
             combined_data.extend_from_slice(&total_bits);
             combined_data.extend_from_slice(&parity_bits);
 
+            combined_data.extend_from_slice(&segments);
 
-           combined_data.extend_from_slice(&segments);
-
-            let maybe_combined_data = encode::build_combined_data(combined_data, version, &error_correction);
+            let maybe_combined_data =
+                encode::build_combined_data(combined_data, version, &error_correction);
 
             let combined_data = match maybe_combined_data {
                 Ok(data) => data,
                 Err(e) => return Err(QRError::new(&format!("{} for chunk {}, split the data into smaller chunks using QRBuilder::add_segment", e, index))),
             };
 
-            let (blocks, ec_blocks) = correction::correction(version, &error_correction, combined_data);
+            let (blocks, ec_blocks) =
+                correction::correction(version, &error_correction, combined_data);
 
             let result = interleave::interleave(blocks, ec_blocks, version);
 
@@ -299,9 +345,7 @@ impl QRCode {
             };
 
             qr_codes.push(matrix);
-                       
         }
-
 
         Ok(qr_codes)
     }
@@ -359,6 +403,7 @@ impl QRCode {
     }
 }
 
+#[derive(Clone)]
 pub enum Mode {
     Numeric,
     Alphanumeric,
@@ -474,14 +519,15 @@ fn main() -> Result<(), QRError> {
     //     .build_image_file("hello_0.png")?;
 
     let structured = QRCode::builder()
-        .add_segment(Some(Mode::Byte), b"I read the ")
-        .add_segment(Some(Mode::Byte), b"today oh boy")
+        .add_segment(Some(Mode::Byte), b"I read the newspaper")
+        .add_segment(Some(Mode::Numeric), b"1234567890")
         .error_correction(ErrorCorrection::L)
         .version(Version::V(1))
         .build_with_structual_append()?;
 
     for (index, qr_code) in structured.iter().enumerate() {
-        qr_code.image_builder()
+        qr_code
+            .image_builder()
             .set_width(200)
             .set_height(200)
             .set_border(4)

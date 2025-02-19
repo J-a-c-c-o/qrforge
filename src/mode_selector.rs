@@ -1,6 +1,4 @@
-use crate::{
-    constants::ALPHANUMERIC, encode, utils, ErrorCorrection, Mode, QRError, Version
-};
+use crate::{constants::ALPHANUMERIC, encode, utils, ErrorCorrection, Mode, QRError, Version};
 
 pub(crate) fn select_mode(data: &[u8]) -> Mode {
     if data.iter().all(|&c| c >= b'0' && c <= b'9') {
@@ -23,7 +21,6 @@ pub(crate) fn get_version(
             data_size += mode.len() + data.len();
         }
 
-
         let capacity = utils::get_available_data_size(i, error_correction);
 
         if data_size <= capacity as usize {
@@ -34,9 +31,7 @@ pub(crate) fn get_version(
     Err(QRError::new("Data is too large"))
 }
 
-pub fn optimize_segments(
-    segments: &Vec<(Mode, Vec<u8>)>,
-) -> Vec<(Mode, Vec<u8>)> {
+pub fn optimize_segments(segments: &Vec<(Mode, Vec<u8>)>) -> Vec<(Mode, Vec<u8>)> {
     // combine segments of the same mode
     let mut optimized_segments = Vec::new();
     let mut current_mode = Mode::Byte;

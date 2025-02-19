@@ -1,6 +1,4 @@
-use crate::{
-    constants::REMAINDER_BITS, error::QRError, utils, ErrorCorrection, Mode
-};
+use crate::{constants::REMAINDER_BITS, error::QRError, utils, ErrorCorrection, Mode};
 
 pub(crate) fn encode_segment(version: usize, mode: &Mode, bytes: &[u8]) -> (Vec<bool>, Vec<bool>) {
     match mode {
@@ -9,19 +7,11 @@ pub(crate) fn encode_segment(version: usize, mode: &Mode, bytes: &[u8]) -> (Vec<
             let eci_mode_indicator = get_mode(mode, version);
             let eci_size = get_size(bytes, eci_bit_count, mode);
 
-            let bit_count = get_bit_count(version, &Mode::Byte);
-            let mode_indicator = get_mode(&Mode::Byte, version);
-            let size = get_size(bytes, bit_count, &Mode::Byte);
-            let data = get_data(bytes, &Mode::Byte);
-
             let mut mode = vec![];
             mode.extend_from_slice(&eci_mode_indicator);
             mode.extend_from_slice(&eci_size);
 
-            mode.extend_from_slice(&mode_indicator);
-            mode.extend_from_slice(&size);
-
-            (mode, data)
+            (mode, vec![])
         }
 
         _ => {
@@ -29,7 +19,7 @@ pub(crate) fn encode_segment(version: usize, mode: &Mode, bytes: &[u8]) -> (Vec<
             let mode_indicator = get_mode(mode, version);
             let size = get_size(bytes, bit_count, mode);
             let data = get_data(bytes, mode);
-            
+
             let mut mode = vec![];
             mode.extend_from_slice(&mode_indicator);
             mode.extend_from_slice(&size);
@@ -46,8 +36,7 @@ pub(crate) fn build_combined_data(
 ) -> Result<Vec<bool>, QRError> {
     let mut combined_data = vec![];
 
-    let data_codewords =
-        utils::get_available_data_size(version, error_correction) as usize;
+    let data_codewords = utils::get_available_data_size(version, error_correction) as usize;
 
     if data_codewords == 0 {
         return Err(QRError::new("Invalid version"));
@@ -70,7 +59,6 @@ pub(crate) fn build_combined_data(
         44 => 9,
         _ => panic!("Invalid version"),
     };
-
 
     while combined_data.len() < data_codewords as usize && terminator < terminator_size {
         combined_data.push(false);
@@ -96,8 +84,6 @@ pub(crate) fn build_combined_data(
 
     Ok(combined_data)
 }
-
-
 
 fn get_bit_count(version: usize, mode: &Mode) -> u32 {
     match mode {
@@ -307,5 +293,3 @@ fn get_alphanumeric_index(c: char) -> u32 {
         _ => 0,
     }
 }
-
-
