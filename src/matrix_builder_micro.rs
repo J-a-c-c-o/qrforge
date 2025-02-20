@@ -1,22 +1,24 @@
 use crate::{
     constants::{FINDER_PATTERN, FORMAT_INFO_MICRO, MICRO_MAPPING},
-    ErrorCorrection, QRCode,
+    qrcode::{self, QRCode},
+    ErrorCorrection,
 };
 use rayon::prelude::*;
 
+/// Build the QR matrix
 pub(crate) fn build_qr_matrix(
-    matrix: &mut QRCode,
+    matrix: &mut qrcode::QRCode,
     version: usize,
     error_correction: &ErrorCorrection,
     data: Vec<bool>,
 ) {
     add_finder_patterns(matrix);
 
-    add_seperators(matrix);
+    add_separators(matrix);
 
     add_timing_patterns(matrix);
 
-    add_reseverd_area(matrix);
+    add_reserverd_area(matrix);
 
     let data_coordinates = add_data(matrix, data);
 
@@ -24,7 +26,8 @@ pub(crate) fn build_qr_matrix(
     apply_format_version_information(matrix, version, error_correction, mask);
 }
 
-fn add_finder_patterns(matrix: &mut QRCode) {
+/// Add the finder patterns
+fn add_finder_patterns(matrix: &mut qrcode::QRCode) {
     for i in 0..7 {
         for j in 0..7 {
             matrix.set(j, i, FINDER_PATTERN[i][j]);
@@ -32,14 +35,16 @@ fn add_finder_patterns(matrix: &mut QRCode) {
     }
 }
 
-fn add_seperators(matrix: &mut QRCode) {
+/// Add the separators
+fn add_separators(matrix: &mut qrcode::QRCode) {
     for i in 0..8 {
         matrix.set(7, i, false);
         matrix.set(i, 7, false);
     }
 }
 
-fn add_timing_patterns(matrix: &mut QRCode) {
+/// Add the timing patterns
+fn add_timing_patterns(matrix: &mut qrcode::QRCode) {
     let dimension = matrix.dimension();
 
     for i in 8..dimension {
@@ -48,11 +53,8 @@ fn add_timing_patterns(matrix: &mut QRCode) {
     }
 }
 
-fn add_reseverd_area(matrix: &mut QRCode) {
-    add_reserverd_area(matrix);
-}
-
-fn add_reserverd_area(matrix: &mut QRCode) {
+/// Add the reserved area
+fn add_reserverd_area(matrix: &mut qrcode::QRCode) {
     // top left down
     for i in 0..9 {
         if matrix.is_empty(8, i) {
@@ -68,6 +70,7 @@ fn add_reserverd_area(matrix: &mut QRCode) {
     }
 }
 
+/// Add the data to the matrix
 fn add_data(matrix: &mut QRCode, data: Vec<bool>) -> Vec<(i32, i32)> {
     let dimension = matrix.dimension() as i32;
     let mut visited = Vec::new();
@@ -110,6 +113,7 @@ fn add_data(matrix: &mut QRCode, data: Vec<bool>) -> Vec<(i32, i32)> {
     visited
 }
 
+/// Apply the mask
 fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
     {
         let results: Vec<(u32, i32, QRCode)> = (0..4)
@@ -141,6 +145,7 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
     }
 }
 
+/// Apply the mask pattern
 fn apply_mask_pattern(matrix: &mut QRCode, mask: u32, data_coordinates: &Vec<(i32, i32)>) {
     for (x, y) in data_coordinates.iter() {
         let i = *y as usize;
@@ -171,6 +176,7 @@ fn apply_mask_pattern(matrix: &mut QRCode, mask: u32, data_coordinates: &Vec<(i3
     }
 }
 
+/// Calculate the penalty
 fn calculate_penalty(matrix: &QRCode) -> i32 {
     let dimension = matrix.dimension();
 
@@ -189,6 +195,7 @@ fn calculate_penalty(matrix: &QRCode) -> i32 {
     penalty
 }
 
+/// Apply the format version information
 fn apply_format_version_information(
     matrix: &mut QRCode,
     version: usize,
@@ -211,6 +218,7 @@ fn apply_format_version_information(
     }
 }
 
+/// Get the format information
 fn get_format_information(
     error_correction: &ErrorCorrection,
     version: usize,

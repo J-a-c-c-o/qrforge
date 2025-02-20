@@ -3,19 +3,21 @@ use crate::{
         ALIGNMENT_PATTERN, ALIGNMENT_PATTERN_LOCATION, FINDER_PATTERN, FORMAT_INFORMATION, PATTERN,
         VERSION_INFORMATION,
     },
-    ErrorCorrection, QRCode,
+    qrcode::{self, QRCode},
+    ErrorCorrection,
 };
 use rayon::prelude::*;
 
+/// Build the QR matrix
 pub(crate) fn build_qr_matrix(
-    matrix: &mut QRCode,
+    matrix: &mut qrcode::QRCode,
     version: usize,
     error_correction: &ErrorCorrection,
     data: Vec<bool>,
 ) {
     add_finder_patterns(matrix);
 
-    add_seperators(matrix);
+    add_separators(matrix);
 
     add_alignment_patterns(matrix, version);
 
@@ -31,7 +33,8 @@ pub(crate) fn build_qr_matrix(
     apply_format_version_information(matrix, version, error_correction, mask);
 }
 
-fn add_finder_patterns(matrix: &mut QRCode) {
+/// Add the finder patterns
+fn add_finder_patterns(matrix: &mut qrcode::QRCode) {
     let dimension = matrix.dimension();
 
     for i in 0..7 {
@@ -43,7 +46,8 @@ fn add_finder_patterns(matrix: &mut QRCode) {
     }
 }
 
-fn add_seperators(matrix: &mut QRCode) {
+/// Add the separators
+fn add_separators(matrix: &mut qrcode::QRCode) {
     let dimension = matrix.dimension();
 
     for i in 0..8 {
@@ -56,6 +60,7 @@ fn add_seperators(matrix: &mut QRCode) {
     }
 }
 
+/// Add the alignment patterns
 fn add_alignment_patterns(matrix: &mut QRCode, version: usize) {
     let alignment_location = get_alignment_location(version);
 
@@ -74,6 +79,7 @@ fn add_alignment_patterns(matrix: &mut QRCode, version: usize) {
     }
 }
 
+/// Add the timing patterns
 fn add_timing_patterns(matrix: &mut QRCode) {
     let dimension = matrix.dimension();
 
@@ -83,6 +89,7 @@ fn add_timing_patterns(matrix: &mut QRCode) {
     }
 }
 
+/// Add the dark module
 fn add_dark_module(matrix: &mut QRCode, version: usize) {
     let x = 8;
     let y = 4 * version + 9;
@@ -90,6 +97,7 @@ fn add_dark_module(matrix: &mut QRCode, version: usize) {
     matrix.set(x, y, true);
 }
 
+/// Add the reserved area
 fn add_reseverd_area(matrix: &mut QRCode, version: usize) {
     add_reserverd_area(matrix);
     if version >= 7 {
@@ -97,6 +105,7 @@ fn add_reseverd_area(matrix: &mut QRCode, version: usize) {
     }
 }
 
+/// Add the reserved area
 fn add_reserverd_area(matrix: &mut QRCode) {
     let dimension = matrix.dimension();
 
@@ -129,6 +138,7 @@ fn add_reserverd_area(matrix: &mut QRCode) {
     }
 }
 
+/// Add the reserved area for version 7 to 40
 fn add_reserverd_area_v7_to_v40(matrix: &mut QRCode) {
     let dimension = matrix.dimension();
 
@@ -151,6 +161,7 @@ fn add_reserverd_area_v7_to_v40(matrix: &mut QRCode) {
     }
 }
 
+/// Add the data to the matrix
 fn add_data(matrix: &mut QRCode, data: Vec<bool>) -> Vec<(i32, i32)> {
     let dimension = matrix.dimension() as i32;
     let mut visited = Vec::new();
@@ -198,6 +209,7 @@ fn add_data(matrix: &mut QRCode, data: Vec<bool>) -> Vec<(i32, i32)> {
     visited
 }
 
+/// Apply the mask
 fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
     {
         let results: Vec<(u32, i32, QRCode)> = (0..8)
@@ -229,6 +241,7 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
     }
 }
 
+/// Apply the mask pattern
 fn apply_mask_pattern(matrix: &mut QRCode, mask: u32, data_coordinates: &Vec<(i32, i32)>) {
     for (x, y) in data_coordinates.iter() {
         let i = *y as usize;
@@ -279,6 +292,7 @@ fn apply_mask_pattern(matrix: &mut QRCode, mask: u32, data_coordinates: &Vec<(i3
     }
 }
 
+/// Calculate the penalty
 fn calculate_penalty(matrix: &QRCode) -> i32 {
     let mut penalty = 0;
 
@@ -290,6 +304,7 @@ fn calculate_penalty(matrix: &QRCode) -> i32 {
     penalty
 }
 
+/// Calculate the penalty for rule 1
 fn calculate_penalty_rule_1(matrix: &QRCode) -> i32 {
     let mut penalty = 0;
 
@@ -344,6 +359,7 @@ fn calculate_penalty_rule_1(matrix: &QRCode) -> i32 {
     penalty
 }
 
+/// Calculate the penalty for rule 2
 fn calculate_penalty_rule_2(matrix: &QRCode) -> i32 {
     let boxes = count_boxes(matrix);
 
@@ -351,6 +367,7 @@ fn calculate_penalty_rule_2(matrix: &QRCode) -> i32 {
     penalty
 }
 
+/// Count the number of boxes
 fn count_boxes(matrix: &QRCode) -> i32 {
     let dimension = matrix.dimension();
     let mut count = 0;
@@ -369,6 +386,7 @@ fn count_boxes(matrix: &QRCode) -> i32 {
     count
 }
 
+/// Calculate the penalty for rule 3
 fn calculate_penalty_rule_3(matrix: &QRCode) -> i32 {
     let penalty = count_occurences(matrix, &PATTERN) * 40;
 
@@ -427,6 +445,7 @@ fn count_occurences(matrix: &QRCode, pattern: &[bool; 7]) -> i32 {
     count
 }
 
+/// Calculate the penalty for rule 4
 fn calculate_penalty_rule_4(matrix: &QRCode) -> i32 {
     let mut dark_count = 0;
     let dimension = matrix.dimension();
@@ -455,6 +474,7 @@ fn calculate_penalty_rule_4(matrix: &QRCode) -> i32 {
     }
 }
 
+/// Apply the format and version information
 fn apply_format_version_information(
     matrix: &mut QRCode,
     version: usize,
@@ -529,6 +549,7 @@ fn apply_format_version_information(
     }
 }
 
+/// Get the alignment location
 fn get_alignment_location(version: usize) -> Vec<(usize, usize)> {
     let mut alignment_pattern = Vec::new();
 
@@ -548,6 +569,7 @@ fn get_alignment_location(version: usize) -> Vec<(usize, usize)> {
     alignment_pattern
 }
 
+/// Get the format information
 fn get_format_information(error_correction: &ErrorCorrection, mask: u32) -> Vec<bool> {
     let ec_level = error_correction.to_value();
 
@@ -562,6 +584,7 @@ fn get_format_information(error_correction: &ErrorCorrection, mask: u32) -> Vec<
     format_information
 }
 
+/// Get the version information
 fn get_version_information(version: usize) -> Vec<bool> {
     let version_info = VERSION_INFORMATION[version - 7];
 

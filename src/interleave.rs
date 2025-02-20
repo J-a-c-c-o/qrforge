@@ -1,5 +1,6 @@
 use crate::constants::REMAINING_BITS;
 
+/// Interleave the data and error correction blocks
 pub(crate) fn interleave(
     blocks: Vec<Vec<Vec<bool>>>,
     ec_blocks: Vec<Vec<Vec<bool>>>,
@@ -25,6 +26,7 @@ pub(crate) fn interleave(
     result
 }
 
+/// Interleave the blocks
 fn interleave_blocks(blocks: &Vec<Vec<Vec<bool>>>) -> Vec<Vec<bool>> {
     let mut result: Vec<Vec<bool>> = Vec::new();
     let max_length = blocks.iter().map(|b| b.len()).max().unwrap_or(0);
@@ -40,6 +42,7 @@ fn interleave_blocks(blocks: &Vec<Vec<Vec<bool>>>) -> Vec<Vec<bool>> {
     result
 }
 
+/// Get the remainder bits
 fn get_remainder_bits(version: usize) -> Vec<bool> {
     let mut result: Vec<bool> = Vec::new();
     let remaining = REMAINING_BITS[version - 1];

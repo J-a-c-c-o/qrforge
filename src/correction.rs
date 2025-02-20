@@ -10,6 +10,7 @@ lazy_static! {
     static ref GF_TABLES: ([u8; 256], [u8; 256]) = generate_gf_tables();
 }
 
+/// Perform error correction on the data
 pub(crate) fn correction(
     version: usize,
     error_correction: &ErrorCorrection,
@@ -54,6 +55,7 @@ pub(crate) fn correction(
     (blocks, ec_blocks)
 }
 
+/// Build polynomial from data
 fn build_polynomial(data: &[Vec<bool>]) -> Vec<(u32, u32)> {
     let mut polynomial = Vec::with_capacity(data.len());
     let size = (data.len() - 1) as u32;
@@ -67,6 +69,7 @@ fn build_polynomial(data: &[Vec<bool>]) -> Vec<(u32, u32)> {
     polynomial
 }
 
+/// Generate generator polynomial
 fn generate_generator_polynomial(
     ec_codewords: u32,
     log_table: &[u8; 256],
@@ -84,6 +87,7 @@ fn generate_generator_polynomial(
     polynomial
 }
 
+/// Multiply two polynomials
 fn multiply_polynomial(
     polynomial: &[(u32, u32)],
     alpha_power: u32,
@@ -104,7 +108,7 @@ fn multiply_polynomial(
     for (val, e) in result_temp {
         if let Some(existing) = result.iter_mut().find(|(_, ex)| *ex == e) {
             let tmp = lookup(
-                reverse_lookup(val, antilog_table) ^ reverse_lookup(existing.0, antilog_table),
+                lookup(val, antilog_table) ^ lookup(existing.0, antilog_table),
                 log_table,
             );
             existing.0 = tmp;
@@ -115,6 +119,7 @@ fn multiply_polynomial(
     result
 }
 
+/// first step of creating error correction codewords
 fn part0(
     n: u32,
     generator: &Vec<(u32, u32)>,
@@ -142,6 +147,7 @@ fn part0(
     )
 }
 
+/// Recursive step of creating error correction codewords
 fn partn(
     polynomial: &Vec<(u32, u32)>,
     generator: &Vec<(u32, u32)>,
@@ -153,7 +159,7 @@ fn partn(
         return polynomial.iter().map(|(a, _)| *a).collect();
     }
 
-    let lookup = lookup(polynomial[0].0, log_table);
+    let lookup_value = lookup(polynomial[0].0, log_table);
 
     // Pre-allocate new polynomial with max possible size
     let mut new_poly = Vec::with_capacity(max(polynomial.len(), generator.len()));
@@ -162,7 +168,7 @@ fn partn(
     for i in 1..max(polynomial.len(), generator.len()) {
         let poly_val = polynomial.get(i).map_or(0, |&(a, _)| a);
         let gen_val = if i < generator.len() {
-            reverse_lookup((generator[i].0 + lookup) % 255, antilog_table)
+            lookup((generator[i].0 + lookup_value) % 255, antilog_table)
         } else {
             0
         };
@@ -173,6 +179,7 @@ fn partn(
     partn(&new_poly, generator, n - 1, log_table, antilog_table)
 }
 
+/// Find maximum of two usize values
 fn max(a: usize, b: usize) -> usize {
     if a > b {
         return a;
@@ -180,14 +187,12 @@ fn max(a: usize, b: usize) -> usize {
     b
 }
 
+/// Perform a lookup in the log table
 fn lookup(a: u32, log_table: &[u8; 256]) -> u32 {
     log_table[a as usize] as u32
 }
 
-fn reverse_lookup(a: u32, antilog_table: &[u8; 256]) -> u32 {
-    antilog_table[a as usize] as u32
-}
-
+/// Generate Galois Field tables
 fn generate_gf_tables() -> ([u8; 256], [u8; 256]) {
     let primitive_polynomial: u16 = 285;
     let mut antilog_table = [0u8; 256];
@@ -208,6 +213,7 @@ fn generate_gf_tables() -> ([u8; 256], [u8; 256]) {
     (antilog_table, log_table)
 }
 
+/// Split data into correct sized blocks
 fn split_into_blocks(
     combined_data: Vec<bool>,
     version: usize,
@@ -239,6 +245,7 @@ fn split_into_blocks(
     blocks
 }
 
+/// Get the number of error correction codewords
 fn ec_codewords(version: usize, error_correction: &ErrorCorrection) -> u32 {
     let correction_level = error_correction.to_value();
 

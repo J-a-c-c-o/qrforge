@@ -1,34 +1,23 @@
 use crate::{constants::REMAINDER_BITS, error::QRError, utils, ErrorCorrection, Mode};
 
+/// Encodes a segment of data
 pub(crate) fn encode_segment(version: usize, mode: &Mode, bytes: &[u8]) -> (Vec<bool>, Vec<bool>) {
-    match mode {
-        Mode::ECI(_) => {
-            let eci_bit_count = get_bit_count(version, mode);
-            let eci_mode_indicator = get_mode(mode, version);
-            let eci_size = get_size(bytes, eci_bit_count, mode);
+    let bit_count = get_bit_count_for_length(version, mode);
+    let mode_indicator = get_mode(mode, version);
+    let size = get_size(bytes, bit_count, mode);
+    let data = match mode {
+        Mode::ECI(_) => vec![],
+        _ => get_data(bytes, mode),
+    };
 
-            let mut mode = vec![];
-            mode.extend_from_slice(&eci_mode_indicator);
-            mode.extend_from_slice(&eci_size);
+    let mut mode = vec![];
+    mode.extend_from_slice(&mode_indicator);
+    mode.extend_from_slice(&size);
 
-            (mode, vec![])
-        }
-
-        _ => {
-            let bit_count = get_bit_count(version, mode);
-            let mode_indicator = get_mode(mode, version);
-            let size = get_size(bytes, bit_count, mode);
-            let data = get_data(bytes, mode);
-
-            let mut mode = vec![];
-            mode.extend_from_slice(&mode_indicator);
-            mode.extend_from_slice(&size);
-
-            (mode, data)
-        }
-    }
+    (mode, data)
 }
 
+/// Cobines all vectors into one
 pub(crate) fn build_combined_data(
     data: Vec<bool>,
     version: usize,
@@ -85,7 +74,8 @@ pub(crate) fn build_combined_data(
     Ok(combined_data)
 }
 
-fn get_bit_count(version: usize, mode: &Mode) -> u32 {
+/// Get the number of bits for the mode length indicator
+fn get_bit_count_for_length(version: usize, mode: &Mode) -> u32 {
     match mode {
         Mode::Numeric => match version {
             1..=9 => 10,
@@ -131,6 +121,7 @@ fn get_bit_count(version: usize, mode: &Mode) -> u32 {
     }
 }
 
+/// Get the mode indicator
 fn get_mode(mode: &Mode, version: usize) -> Vec<bool> {
     match version {
         1..=40 => match mode {
@@ -164,6 +155,7 @@ fn get_mode(mode: &Mode, version: usize) -> Vec<bool> {
     }
 }
 
+/// Get the size bits for the mode
 fn get_size(bytes: &[u8], bit_count: u32, mode: &Mode) -> Vec<bool> {
     match mode {
         Mode::Kanji => {
@@ -192,6 +184,7 @@ fn get_size(bytes: &[u8], bit_count: u32, mode: &Mode) -> Vec<bool> {
     }
 }
 
+/// Get the data bits for the encoded data
 fn get_data(bytes: &[u8], mode: &Mode) -> Vec<bool> {
     let mut data = vec![];
 
@@ -277,6 +270,7 @@ fn get_data(bytes: &[u8], mode: &Mode) -> Vec<bool> {
     data
 }
 
+/// Get the index of an alphanumeric character
 fn get_alphanumeric_index(c: char) -> u32 {
     match c {
         '0'..='9' => c as u32 - '0' as u32,
