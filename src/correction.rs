@@ -1,4 +1,6 @@
 use lazy_static::lazy_static;
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 use crate::{
@@ -26,6 +28,7 @@ pub(crate) fn correction(
     let generator = generate_generator_polynomial(ec_codewords, log_table, antilog_table);
 
     // Process blocks in parallel
+    #[cfg(feature = "parallel")]
     let ec_blocks: Vec<Vec<Vec<bool>>> = blocks
         .par_iter()
         .map(|block| {
@@ -41,6 +44,34 @@ pub(crate) fn correction(
             // Pre-allocate result vectors
             result
                 .par_iter()
+                .map(|&code| {
+                    let mut data = Vec::with_capacity(8);
+                    (0..8).for_each(|k| {
+                        data.push((code & (1 << (7 - k))) != 0);
+                    });
+                    data
+                })
+                .collect()
+        })
+        .collect();
+
+    // Process blocks sequentially
+    #[cfg(not(feature = "parallel"))]
+    let ec_blocks: Vec<Vec<Vec<bool>>> = blocks
+        .iter()
+        .map(|block| {
+            let polynomial = build_polynomial(block);
+            let result = part0(
+                ec_codewords,
+                &generator,
+                &polynomial,
+                log_table,
+                antilog_table,
+            );
+
+            // Pre-allocate result vectors
+            result
+                .iter()
                 .map(|&code| {
                     let mut data = Vec::with_capacity(8);
                     (0..8).for_each(|k| {

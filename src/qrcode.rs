@@ -1,9 +1,15 @@
 use std::collections::VecDeque;
 
 use crate::{
-    correction, encode, image, interleave, matrix_builder, matrix_builder_micro,
+    correction, encode, interleave, matrix_builder, matrix_builder_micro,
     qrcode_builder::QRBuilder, utils, ErrorCorrection, Mode, QRError, Version,
 };
+
+#[cfg(feature = "image")]
+use crate::image;
+
+#[cfg(feature = "svg")]
+use crate::svg;
 
 /// Represents a QR code matrix.
 ///
@@ -32,6 +38,7 @@ impl QRCode {
     ///
     /// The image builder can be used to create a visual representation (PNG, SVG, etc.)
     /// of the QR code matrix.
+    #[cfg(feature = "image")]
     pub fn image_builder(&self) -> image::ImageQRCode {
         image::ImageQRCode::new(self.clone())
     }
@@ -39,8 +46,9 @@ impl QRCode {
     /// Returns an svg builder for the QR code.
     ///
     /// The svg builder can be used to create a visual representation of the QR code matrix in SVG format.
-    pub fn svg_builder(&self) -> image::SvgQRCode {
-        image::SvgQRCode::new(self.clone())
+    #[cfg(feature = "svg")]
+    pub fn svg_builder(&self) -> svg::SvgQRCode {
+        svg::SvgQRCode::new(self.clone())
     }
 
     /// Internal method to build a QR code.

@@ -6,6 +6,7 @@ use crate::{
     qrcode::{self, QRCode},
     ErrorCorrection,
 };
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 /// Build the QR matrix
@@ -212,6 +213,24 @@ fn add_data(matrix: &mut QRCode, data: Vec<bool>) -> Vec<(i32, i32)> {
 /// Apply the mask
 fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
     {
+        #[cfg(not(feature = "parallel"))]
+        let results: Vec<(u32, i32, QRCode)> = (0..8)
+            .into_iter()
+            .map(|i| {
+                let mut new_matrix = matrix.clone();
+                apply_mask_pattern(&mut new_matrix, i, &data_coordinates);
+                let penalty = calculate_penalty(&new_matrix);
+                (i, penalty, new_matrix)
+            })
+            .collect();
+
+        #[cfg(not(feature = "parallel"))]
+        let (_, _, best_matrix) = results
+            .iter()
+            .min_by_key(|(_, penalty, _)| *penalty)
+            .unwrap();
+
+        #[cfg(feature = "parallel")]
         let results: Vec<(u32, i32, QRCode)> = (0..8)
             .into_par_iter()
             .map(|i| {
@@ -222,6 +241,7 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
             })
             .collect();
 
+        #[cfg(feature = "parallel")]
         let (_, _, best_matrix) = results
             .par_iter()
             .min_by_key(|(_, penalty, _)| *penalty)
