@@ -11,7 +11,7 @@ pub(crate) fn interleave(
 
     let total_capacity = interleave_data.iter().map(|b| b.len()).sum::<usize>()
         + interleave_ec.iter().map(|b| b.len()).sum::<usize>()
-        + REMAINING_BITS[version as usize - 1] as usize;
+        + REMAINING_BITS[version - 1] as usize;
 
     let mut result: Vec<bool> = Vec::with_capacity(total_capacity);
     for block in &interleave_data {
@@ -44,10 +44,6 @@ fn interleave_blocks(blocks: &Vec<Vec<Vec<bool>>>) -> Vec<Vec<bool>> {
 
 /// Get the remainder bits
 fn get_remainder_bits(version: usize) -> Vec<bool> {
-    let mut result: Vec<bool> = Vec::new();
     let remaining = REMAINING_BITS[version - 1];
-    for _ in 0..remaining {
-        result.push(false);
-    }
-    result
+    vec![false; remaining as usize]
 }

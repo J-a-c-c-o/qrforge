@@ -129,7 +129,7 @@ fn multiply_polynomial(
     let mut result_temp = Vec::with_capacity(polynomial.len() * 2);
     for &(coeff, exp) in polynomial {
         // Multiply with (0, 1) => shift exponent by 1
-        result_temp.push(((coeff + 0) % 255, exp + 1));
+        result_temp.push((coeff % 255, exp + 1));
         // Multiply with (alpha^alpha_power, 0)
         result_temp.push(((coeff + alpha_power) % 255, exp));
     }
@@ -153,8 +153,8 @@ fn multiply_polynomial(
 /// first step of creating error correction codewords
 fn part0(
     n: u32,
-    generator: &Vec<(u32, u32)>,
-    data_polynomial: &Vec<(u32, u32)>,
+    generator: &[(u32, u32)],
+    data_polynomial: &[(u32, u32)],
     log_table: &[u8; 256],
     antilog_table: &[u8; 256],
 ) -> Vec<u32> {
@@ -163,7 +163,7 @@ fn part0(
         polynomial.push((*a, (*b) + n));
     }
     let mut generator_polynomial: Vec<(u32, u32)> = Vec::new();
-    let diff = polynomial.get(0).unwrap().1 - generator.get(0).unwrap().1;
+    let diff = polynomial.first().unwrap().1 - generator.first().unwrap().1;
 
     for (a, b) in generator.iter() {
         generator_polynomial.push((*a, (*b) + diff));
@@ -180,8 +180,8 @@ fn part0(
 
 /// Recursive step of creating error correction codewords
 fn partn(
-    polynomial: &Vec<(u32, u32)>,
-    generator: &Vec<(u32, u32)>,
+    polynomial: &[(u32, u32)],
+    generator: &[(u32, u32)],
     n: u32,
     log_table: &[u8; 256],
     antilog_table: &[u8; 256],

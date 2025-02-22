@@ -24,9 +24,9 @@ pub(crate) fn build_qr_matrix(
 
     add_timing_patterns(matrix);
 
-    add_dark_module(matrix, version as usize);
+    add_dark_module(matrix, version);
 
-    add_reseverd_area(matrix, version as usize);
+    add_reseverd_area(matrix, version);
 
     let data_coordinates = add_data(matrix, data);
 
@@ -38,13 +38,13 @@ pub(crate) fn build_qr_matrix(
 fn add_finder_patterns(matrix: &mut qrcode::QRCode) {
     let dimension = matrix.dimension();
 
-    for i in 0..7 {
-        for j in 0..7 {
-            matrix.set(j, i, FINDER_PATTERN[i][j]);
-            matrix.set(dimension - 1 - j, i, FINDER_PATTERN[i][j]);
-            matrix.set(j, dimension - 1 - i, FINDER_PATTERN[i][j]);
-        }
-    }
+    FINDER_PATTERN.iter().enumerate().for_each(|(i, row)| {
+        row.iter().enumerate().for_each(|(j, &value)| {
+            matrix.set(j, i, value);
+            matrix.set(dimension - 1 - j, i, value);
+            matrix.set(j, dimension - 1 - i, value);
+        });
+    });
 }
 
 /// Add the separators
@@ -72,11 +72,11 @@ fn add_alignment_patterns(matrix: &mut QRCode, version: usize) {
             continue;
         }
 
-        for i in 0..5 {
-            for j in 0..5 {
-                matrix.set(x - 2 + i, y - 2 + j, ALIGNMENT_PATTERN[j][i]);
-            }
-        }
+        ALIGNMENT_PATTERN.iter().enumerate().for_each(|(i, row)| {
+            row.iter().enumerate().for_each(|(j, &value)| {
+                matrix.set(x - 2 + i, y - 2 + j, value);
+            });
+        });
     }
 }
 
@@ -215,7 +215,6 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
     {
         #[cfg(not(feature = "parallel"))]
         let results: Vec<(u32, i32, QRCode)> = (0..8)
-            .into_iter()
             .map(|i| {
                 let mut new_matrix = matrix.clone();
                 apply_mask_pattern(&mut new_matrix, i, &data_coordinates);
@@ -262,7 +261,7 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
 }
 
 /// Apply the mask pattern
-fn apply_mask_pattern(matrix: &mut QRCode, mask: u32, data_coordinates: &Vec<(i32, i32)>) {
+fn apply_mask_pattern(matrix: &mut QRCode, mask: u32, data_coordinates: &[(i32, i32)]) {
     for (x, y) in data_coordinates.iter() {
         let i = *y as usize;
         let j = *x as usize;
@@ -383,8 +382,7 @@ fn calculate_penalty_rule_1(matrix: &QRCode) -> i32 {
 fn calculate_penalty_rule_2(matrix: &QRCode) -> i32 {
     let boxes = count_boxes(matrix);
 
-    let penalty = boxes * 3;
-    penalty
+    boxes * 3
 }
 
 /// Count the number of boxes
@@ -408,9 +406,7 @@ fn count_boxes(matrix: &QRCode) -> i32 {
 
 /// Calculate the penalty for rule 3
 fn calculate_penalty_rule_3(matrix: &QRCode) -> i32 {
-    let penalty = count_occurences(matrix, &PATTERN) * 40;
-
-    penalty
+    count_occurences(matrix, &PATTERN) * 40
 }
 
 fn count_occurences(matrix: &QRCode, pattern: &[bool; 7]) -> i32 {

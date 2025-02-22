@@ -6,7 +6,7 @@ pub(crate) fn get_available_data_size(version: usize, error_correction: &ErrorCo
         panic!("Invalid version");
     }
 
-    DATA_CODEWORDS[version - 1][error_correction.to_value()] * if version <= 40 { 8 } else { 0 }
+    DATA_CODEWORDS[version - 1][error_correction.to_value()] * if version <= 40 { 8 } else { 1 }
 }
 
 /// Convert bits to bytes

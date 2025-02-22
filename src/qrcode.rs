@@ -66,12 +66,12 @@ impl QRCode {
     ) -> Result<QRCode, QRError> {
         match version {
             Version::V(v) => {
-                if v < 1 || v > 40 {
+                if !(1..=40).contains(&v) {
                     return Err(QRError::new("Invalid version"));
                 }
             }
             Version::M(v) => {
-                if v < 1 || v > 5 {
+                if !(1..=5).contains(&v) {
                     return Err(QRError::new("Invalid version"));
                 }
             }
@@ -134,7 +134,7 @@ impl QRCode {
     ) -> Result<Vec<QRCode>, QRError> {
         match version {
             Version::V(v) => {
-                if v < 1 || v > 40 {
+                if !(1..=40).contains(&v) {
                     return Err(QRError::new("Invalid version"));
                 }
             }
@@ -170,12 +170,9 @@ impl QRCode {
         while let Some((mode, data)) = mutable_segments.pop_front() {
             let (mode_b, data_b) = encode::encode_segment(version, &mode, &data);
 
-            match mode {
-                Mode::ECI(_) => {
-                    eci = Some(mode_b);
-                    continue;
-                }
-                _ => {}
+            if let Mode::ECI(_) = mode {
+                eci = Some(mode_b);
+                continue;
             }
 
             let size = mode_b.len() + data_b.len();
@@ -263,14 +260,14 @@ impl QRCode {
                 (index >> 3) & 1 == 1,
                 (index >> 2) & 1 == 1,
                 (index >> 1) & 1 == 1,
-                (index >> 0) & 1 == 1,
+                index & 1 == 1,
             ];
 
             let total_bits = [
                 (chunks.len() >> 3) & 1 == 1,
                 (chunks.len() >> 2) & 1 == 1,
                 (chunks.len() >> 1) & 1 == 1,
-                (chunks.len() >> 0) & 1 == 1,
+                chunks.len() & 1 == 1,
             ];
 
             let parity_bits = [
@@ -281,7 +278,7 @@ impl QRCode {
                 (parity >> 3) & 1 == 1,
                 (parity >> 2) & 1 == 1,
                 (parity >> 1) & 1 == 1,
-                (parity >> 0) & 1 == 1,
+                parity & 1 == 1,
             ];
 
             combined_data.extend_from_slice(&mode);
@@ -289,7 +286,7 @@ impl QRCode {
             combined_data.extend_from_slice(&total_bits);
             combined_data.extend_from_slice(&parity_bits);
 
-            combined_data.extend_from_slice(&segments);
+            combined_data.extend_from_slice(segments);
 
             let maybe_combined_data =
                 encode::build_combined_data(combined_data, version, &error_correction);
@@ -366,7 +363,7 @@ impl QRCode {
     /// (version - 1) * 4 + 21.
     /// For micro QR codes, a different formula applies.
     fn calculate_dimension(version: usize) -> usize {
-        if version >= 1 && version <= 40 {
+        if (1..=40).contains(&version) {
             (version - 1) * 4 + 21
         } else {
             (version - 41) * 2 + 11

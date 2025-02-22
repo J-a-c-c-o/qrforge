@@ -30,6 +30,19 @@ fn main() -> Result<(), QRError> {
             .set_border(4)
             .build_svg_file(&format!("hello{}.svg", index))?;
     }
+
+
+    let qr = QRCode::builder()
+        .add_segment(Some(Mode::Numeric), b"01234")
+        .error_correction(ErrorCorrection::L)
+        .version(Version::M(1))
+        .build()?;
+
+    qr.image_builder()
+        .set_width(200)
+        .set_height(200)
+        .set_border(4)
+        .build_image_file("hello.png")?;
     println!("QR Code generated in: {:?}", start.elapsed());
 
     Ok(())

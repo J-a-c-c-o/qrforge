@@ -30,11 +30,11 @@ pub(crate) fn build_qr_matrix(
 
 /// Add the finder patterns
 fn add_finder_patterns(matrix: &mut qrcode::QRCode) {
-    for i in 0..7 {
-        for j in 0..7 {
-            matrix.set(j, i, FINDER_PATTERN[i][j]);
-        }
-    }
+    FINDER_PATTERN.iter().enumerate().for_each(|(i, row)| {
+        row.iter().enumerate().for_each(|(j, &value)| {
+            matrix.set(j, i, value);
+        });
+    });
 }
 
 /// Add the separators
@@ -120,7 +120,6 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
     {
         #[cfg(not(feature = "parallel"))]
         let results: Vec<(u32, i32, QRCode)> = (0..4)
-            .into_iter()
             .map(|i| {
                 let mut new_matrix = matrix.clone();
                 apply_mask_pattern(&mut new_matrix, i, &data_coordinates);
@@ -167,7 +166,7 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
 }
 
 /// Apply the mask pattern
-fn apply_mask_pattern(matrix: &mut QRCode, mask: u32, data_coordinates: &Vec<(i32, i32)>) {
+fn apply_mask_pattern(matrix: &mut QRCode, mask: u32, data_coordinates: &[(i32, i32)]) {
     for (x, y) in data_coordinates.iter() {
         let i = *y as usize;
         let j = *x as usize;
@@ -208,12 +207,12 @@ fn calculate_penalty(matrix: &QRCode) -> i32 {
         sum2 += matrix.get(dimension - 1, i) as i32;
     }
 
-    let penalty = match sum1 <= sum2 {
+    
+
+    match sum1 <= sum2 {
         true => sum1 * 16 + sum2,
         false => sum2 * 16 + sum1,
-    };
-
-    penalty
+    }
 }
 
 /// Apply the format version information
@@ -233,7 +232,7 @@ fn apply_format_version_information(
         format_information_index += 1;
     }
 
-    for i in 8..=1 {
+    for i in (1..8).rev() {
         matrix.set(i, 8, format_information_string[format_information_index]);
         format_information_index += 1;
     }

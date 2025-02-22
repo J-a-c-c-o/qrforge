@@ -2,7 +2,7 @@ use crate::{constants::ALPHANUMERIC, encode, utils, ErrorCorrection, Mode, QRErr
 
 /// Select the mode for the data
 pub(crate) fn select_mode(data: &[u8]) -> Mode {
-    if data.iter().all(|&c| c >= b'0' && c <= b'9') {
+    if data.iter().all(|&c| c.is_ascii_digit()) {
         Mode::Numeric
     } else if data.iter().all(|&c| ALPHANUMERIC.contains(&(c as char))) {
         Mode::Alphanumeric

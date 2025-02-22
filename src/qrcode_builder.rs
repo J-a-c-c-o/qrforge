@@ -72,7 +72,7 @@ impl QRBuilder {
             self.segments.push((m, bytes.to_vec()));
         } else {
             self.segments
-                .push((mode_selector::select_mode(&bytes), bytes.to_vec()));
+                .push((mode_selector::select_mode(bytes), bytes.to_vec()));
         }
         self
     }
