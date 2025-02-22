@@ -123,15 +123,15 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
             .map(|i| {
                 let mut new_matrix = matrix.clone();
                 apply_mask_pattern(&mut new_matrix, i, &data_coordinates);
-                let penalty = calculate_penalty(&new_matrix);
-                (i, penalty, new_matrix)
+                let eval = calculate_evaluation(&new_matrix);
+                (i, eval, new_matrix)
             })
             .collect();
 
         #[cfg(not(feature = "parallel"))]
-        let (_, _, best_matrix) = results
+        let (mask, _, best_matrix) = results
             .iter()
-            .min_by_key(|(_, penalty, _)| *penalty)
+            .max_by_key(|(_, eval, _)| *eval)
             .unwrap();
 
         #[cfg(feature = "parallel")]
@@ -140,15 +140,15 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
             .map(|i| {
                 let mut new_matrix = matrix.clone();
                 apply_mask_pattern(&mut new_matrix, i, &data_coordinates);
-                let penalty = calculate_penalty(&new_matrix);
-                (i, penalty, new_matrix)
+                let eval = calculate_evaluation(&new_matrix);
+                (i, eval, new_matrix)
             })
             .collect();
 
         #[cfg(feature = "parallel")]
-        let (_, _, best_matrix) = results
+        let (mask, _, best_matrix) = results
             .par_iter()
-            .min_by_key(|(_, penalty, _)| *penalty)
+            .max_by_key(|(_, eval, _)| *eval)
             .unwrap();
 
         for i in 0..matrix.dimension() {
@@ -157,11 +157,9 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
             }
         }
 
-        results
-            .iter()
-            .min_by_key(|(_, penalty, _)| *penalty)
-            .unwrap()
-            .0
+        *mask
+
+        
     }
 }
 
@@ -197,14 +195,14 @@ fn apply_mask_pattern(matrix: &mut QRCode, mask: u32, data_coordinates: &[(i32, 
 }
 
 /// Calculate the penalty
-fn calculate_penalty(matrix: &QRCode) -> i32 {
+fn calculate_evaluation(matrix: &QRCode) -> i32 {
     let dimension = matrix.dimension();
 
     let mut sum1 = 0;
     let mut sum2 = 0;
     for i in 1..dimension {
-        sum1 += matrix.get(i, dimension - 1) as i32;
-        sum2 += matrix.get(dimension - 1, i) as i32;
+        sum1 += matrix.get(dimension - 1, i) as i32;
+        sum2 += matrix.get(i, dimension - 1) as i32;
     }
 
     

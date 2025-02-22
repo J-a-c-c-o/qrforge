@@ -38,7 +38,7 @@ fn main() -> Result<(), QRError> {
         .version(Version::M(1))
         .build()?;
 
-    qr.clone()
+    qr
         .image_builder()
         .set_width(200)
         .set_height(200)

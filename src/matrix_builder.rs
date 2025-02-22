@@ -224,7 +224,7 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
             .collect();
 
         #[cfg(not(feature = "parallel"))]
-        let (_, _, best_matrix) = results
+        let (mask, _, best_matrix) = results
             .iter()
             .min_by_key(|(_, penalty, _)| *penalty)
             .unwrap();
@@ -241,7 +241,7 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
             .collect();
 
         #[cfg(feature = "parallel")]
-        let (_, _, best_matrix) = results
+        let (mask, _, best_matrix) = results
             .par_iter()
             .min_by_key(|(_, penalty, _)| *penalty)
             .unwrap();
@@ -252,11 +252,8 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
             }
         }
 
-        results
-            .iter()
-            .min_by_key(|(_, penalty, _)| *penalty)
-            .unwrap()
-            .0
+        *mask
+
     }
 }
 
@@ -587,14 +584,21 @@ fn get_alignment_location(version: usize) -> Vec<(usize, usize)> {
 
 /// Get the format information
 fn get_format_information(error_correction: &ErrorCorrection, mask: u32) -> Vec<bool> {
-    let ec_level = error_correction.to_value();
+    let ec_level = match error_correction {
+        ErrorCorrection::L => 1,
+        ErrorCorrection::M => 0,
+        ErrorCorrection::Q => 3,
+        ErrorCorrection::H => 2,
+    };
 
-    let format_info = FORMAT_INFORMATION[ec_level][mask as usize];
+    let index = (ec_level << 3) | mask;
+
+    let format_info = FORMAT_INFORMATION[index as usize];
 
     let mut format_information = Vec::new();
 
-    for c in format_info.chars() {
-        format_information.push(c == '1');
+    for i in (0..15).rev() {
+        format_information.push((format_info >> i) & 1 == 1);
     }
 
     format_information
@@ -606,8 +610,8 @@ fn get_version_information(version: usize) -> Vec<bool> {
 
     let mut version_information = Vec::new();
 
-    for c in version_info.chars() {
-        version_information.push(c == '1');
+    for i in (0..18).rev() {
+        version_information.push((version_info >> i) & 1 == 1);
     }
 
     version_information
