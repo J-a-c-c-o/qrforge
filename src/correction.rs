@@ -12,13 +12,19 @@ lazy_static! {
     static ref GF_TABLES: ([u8; 256], [u8; 256]) = generate_gf_tables();
 }
 
+/// A block of data
+type Block = Vec<Vec<bool>>;
+/// A block of error correction data
+type ECBlock = Vec<Vec<bool>>;
+
+
 /// Perform error correction on the data
 pub(crate) fn correction(
     version: usize,
     error_correction: &ErrorCorrection,
     combined_data: Vec<bool>,
-) -> (Vec<Vec<Vec<bool>>>, Vec<Vec<Vec<bool>>>) {
-    let blocks: Vec<Vec<Vec<bool>>> = split_into_blocks(combined_data, version, error_correction);
+) -> (Vec<Block>, Vec<ECBlock>) {
+    let blocks: Vec<Block> = split_into_blocks(combined_data, version, error_correction);
     let ec_codewords = ec_codewords(version, error_correction);
 
     // Use pre-generated tables
@@ -29,7 +35,7 @@ pub(crate) fn correction(
 
     // Process blocks in parallel
     #[cfg(feature = "parallel")]
-    let ec_blocks: Vec<Vec<Vec<bool>>> = blocks
+    let ec_blocks: Vec<ECBlock> = blocks
         .par_iter()
         .map(|block| {
             let polynomial = build_polynomial(block);
@@ -57,7 +63,7 @@ pub(crate) fn correction(
 
     // Process blocks sequentially
     #[cfg(not(feature = "parallel"))]
-    let ec_blocks: Vec<Vec<Vec<bool>>> = blocks
+    let ec_blocks: Vec<ECBlock> = blocks
         .iter()
         .map(|block| {
             let polynomial = build_polynomial(block);
@@ -231,8 +237,8 @@ fn generate_gf_tables() -> ([u8; 256], [u8; 256]) {
 
     let mut value: u16 = 1;
 
-    for i in 0..255 {
-        antilog_table[i] = value as u8;
+    for (i, antilog) in antilog_table.iter_mut().enumerate() {
+        *antilog = value as u8;
         log_table[value as usize] = i as u8;
 
         value <<= 1;

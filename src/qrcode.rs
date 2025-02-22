@@ -346,17 +346,6 @@ impl QRCode {
         self.dimension
     }
 
-    /// Creates a deep clone of the QRCode.
-    pub fn clone(&self) -> QRCode {
-        let matrix = self.matrix.clone();
-        let some_matrix = self.some_matrix.clone();
-        QRCode {
-            matrix,
-            some_matrix,
-            dimension: self.dimension,
-        }
-    }
-
     /// Calculates the dimension of the QR code for the given version.
     ///
     /// For standard QR codes (versions 1-40), the dimension is calculated as:
@@ -379,7 +368,7 @@ impl QRCode {
         for i in 0..self.dimension {
             for j in 0..self.dimension {
                 if self.is_empty(j, i) {
-                    print!("{}", "  ");
+                    print!("  ");
                 } else {
                     print!("{}", if self.get(j, i) { black } else { white });
                 }
@@ -387,5 +376,17 @@ impl QRCode {
             println!();
         }
         println!();
+    }
+}
+
+impl Clone for QRCode {
+    fn clone(&self) -> QRCode {
+        let matrix = self.matrix.clone();
+        let some_matrix = self.some_matrix.clone();
+        QRCode {
+            matrix,
+            some_matrix,
+            dimension: self.dimension,
+        }
     }
 }

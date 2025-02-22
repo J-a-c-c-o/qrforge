@@ -35,6 +35,12 @@ pub struct QRBuilder {
     segments: Vec<(Mode, Vec<u8>)>,
 }
 
+impl Default for QRBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl QRBuilder {
     /// Creates a new empty QRBuilder.
     pub fn new() -> QRBuilder {

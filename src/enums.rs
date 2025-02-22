@@ -1,5 +1,4 @@
 /// Represents the various encoding modes available for QR codes.
-#[derive(Clone)]
 pub enum Mode {
     /// Numeric mode: encodes digits 0-9.
     Numeric,
@@ -40,9 +39,10 @@ impl Mode {
             Mode::ECI(_) => 4,
         }
     }
+}
 
-    /// Creates a clone of the `Mode`.
-    pub fn clone(&self) -> Mode {
+impl Clone for Mode {
+    fn clone(&self) -> Mode {
         match self {
             Mode::Numeric => Mode::Numeric,
             Mode::Alphanumeric => Mode::Alphanumeric,
@@ -51,6 +51,7 @@ impl Mode {
             Mode::ECI(v) => Mode::ECI(*v),
         }
     }
+    
 }
 
 /// Represents the error correction levels available for QR codes.
