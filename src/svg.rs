@@ -1,9 +1,7 @@
 #![cfg(feature = "svg")]
 use std::{fs::File, io::Write};
 
-use crate::{enums::ErrorEnum, error::QRError, qrcode::QRCode, color::Color};
-
-
+use crate::{color::Color, enums::ErrorEnum, error::QRError, qrcode::QRCode};
 
 /// SvgQRCode builds SVG files.
 ///

@@ -1,7 +1,7 @@
 #![cfg(feature = "image")]
 use image::{ImageBuffer, Rgba};
 
-use crate::{enums::ErrorEnum, error::QRError, qrcode::QRCode, color::Color};
+use crate::{color::Color, enums::ErrorEnum, error::QRError, qrcode::QRCode};
 
 /// ImageQRCode builds raster image files (PNG, etc.).
 ///
