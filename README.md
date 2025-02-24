@@ -16,14 +16,14 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-qrforge = "x.x.x"
+qrforge = "x.y.z"
 ```
 
 To enable optional features:
 
 ```toml
 [dependencies]
-qrforge = { version = "x.x.x", features = ["image", "svg", "parallel"] }
+qrforge = { version = "x.y.z", features = ["image", "svg", "parallel"] }
 ```
 
 ## Usage
