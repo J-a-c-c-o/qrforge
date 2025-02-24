@@ -1,15 +1,17 @@
 [package]
-name = "QRcode"
+name = "qrforge"
 version = "0.1.0"
+authors = ["Jacco te Poel <jacco@tepoel.net>"]
+description = "A QR code generator written in Rust"
 edition = "2021"
+keywords = ["qr", "qrcode", "generator", "rust", "image", "svg", "qrforge"]
+license = "MIT"
+readme = "README.md"
 
 [lib]
-# Adjust the library entry point if necessary.
-name = "qrcode"
 path = "src/lib.rs"
 
 [dependencies]
-lazy_static = "1.5.0"
 image = { version = "0.25.5", optional = true }
 rayon = { version = "1.10.0", optional = true }
 
@@ -18,7 +20,16 @@ parallel = ["dep:rayon"]
 svg = []
 image = ["dep:image"]
 
-[profile.release]
-lto = true
-codegen-units = 1
-opt-level = 3
+[[bin]]
+name = "qrgen"
+features = ["parallel"]
+
+[[example]]
+path = "examples/qrgen_image.rs"
+name = "qrgen_image"
+required-features = ["image"]
+
+[[example]]
+path = "examples/qrgen_svg.rs"
+name = "qrgen_svg"
+required-features = ["svg"]

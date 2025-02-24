@@ -51,7 +51,6 @@ impl Clone for Mode {
             Mode::ECI(v) => Mode::ECI(*v),
         }
     }
-    
 }
 
 /// Represents the error correction levels available for QR codes.
@@ -101,4 +100,12 @@ pub enum Version {
     V(usize),
     /// Micro QR code version.
     M(usize),
+}
+
+#[cfg(any(feature = "image", feature = "svg"))]
+#[derive(PartialEq)]
+pub(crate) enum ErrorEnum {
+    Border,
+    Width,
+    Height,
 }

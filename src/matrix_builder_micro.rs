@@ -129,10 +129,7 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
             .collect();
 
         #[cfg(not(feature = "parallel"))]
-        let (mask, _, best_matrix) = results
-            .iter()
-            .max_by_key(|(_, eval, _)| *eval)
-            .unwrap();
+        let (mask, _, best_matrix) = results.iter().max_by_key(|(_, eval, _)| *eval).unwrap();
 
         #[cfg(feature = "parallel")]
         let results: Vec<(u32, i32, QRCode)> = (0..4)
@@ -146,10 +143,7 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
             .collect();
 
         #[cfg(feature = "parallel")]
-        let (mask, _, best_matrix) = results
-            .par_iter()
-            .max_by_key(|(_, eval, _)| *eval)
-            .unwrap();
+        let (mask, _, best_matrix) = results.par_iter().max_by_key(|(_, eval, _)| *eval).unwrap();
 
         for i in 0..matrix.dimension() {
             for j in 0..matrix.dimension() {
@@ -158,8 +152,6 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
         }
 
         *mask
-
-        
     }
 }
 
@@ -204,8 +196,6 @@ fn calculate_evaluation(matrix: &QRCode) -> i32 {
         sum1 += matrix.get(dimension - 1, i) as i32;
         sum2 += matrix.get(i, dimension - 1) as i32;
     }
-
-    
 
     match sum1 <= sum2 {
         true => sum1 * 16 + sum2,

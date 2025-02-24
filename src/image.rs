@@ -1,14 +1,7 @@
 #![cfg(feature = "image")]
 use image::{ImageBuffer, Rgba};
 
-use crate::{error::QRError, qrcode::QRCode};
-
-#[derive(PartialEq)]
-enum ErrorEnum {
-    InvalidBorder,
-    InvalidWidth,
-    InvalidHeight,
-}
+use crate::{enums::ErrorEnum, error::QRError, qrcode::QRCode, color::Color};
 
 /// ImageQRCode builds raster image files (PNG, etc.).
 ///
@@ -37,9 +30,9 @@ pub struct ImageQRCode {
     width: usize,
     height: usize,
     border: usize,
-    border_color: Rgba<u8>,
-    dark_color: Rgba<u8>,
-    light_color: Rgba<u8>,
+    border_color: Color,
+    dark_color: Color,
+    light_color: Color,
     error: Vec<ErrorEnum>,
 }
 
@@ -52,9 +45,9 @@ impl ImageQRCode {
             width: dimension,
             height: dimension,
             border: 0,
-            border_color: Rgba([255, 255, 255, 255]),
-            dark_color: Rgba([0, 0, 0, 255]),
-            light_color: Rgba([255, 255, 255, 255]),
+            border_color: Color::new(255, 255, 255, 255),
+            dark_color: Color::new(0, 0, 0, 255),
+            light_color: Color::new(255, 255, 255, 255),
             error: Vec::new(),
         }
     }
@@ -67,9 +60,9 @@ impl ImageQRCode {
         if self.width - 2 * border < self.qr_code.dimension()
             || self.height - 2 * border < self.qr_code.dimension()
         {
-            self.error.push(ErrorEnum::InvalidBorder);
+            self.error.push(ErrorEnum::Border);
         } else {
-            self.error.retain(|e| *e != ErrorEnum::InvalidBorder);
+            self.error.retain(|e| *e != ErrorEnum::Border);
             self.border = border;
         }
         self
@@ -80,9 +73,9 @@ impl ImageQRCode {
     /// The width must be at least as large as the QR code dimension.
     pub fn set_width(&mut self, width: usize) -> &mut Self {
         if width < self.qr_code.dimension() {
-            self.error.push(ErrorEnum::InvalidWidth);
+            self.error.push(ErrorEnum::Width);
         } else {
-            self.error.retain(|e| *e != ErrorEnum::InvalidWidth);
+            self.error.retain(|e| *e != ErrorEnum::Width);
             self.width = width;
         }
         self
@@ -93,28 +86,28 @@ impl ImageQRCode {
     /// The height must be at least as large as the QR code dimension.
     pub fn set_height(&mut self, height: usize) -> &mut Self {
         if height < self.qr_code.dimension() {
-            self.error.push(ErrorEnum::InvalidHeight);
+            self.error.push(ErrorEnum::Height);
         } else {
-            self.error.retain(|e| *e != ErrorEnum::InvalidHeight);
+            self.error.retain(|e| *e != ErrorEnum::Height);
             self.height = height;
         }
         self
     }
 
     /// Sets the color used for the image border.
-    pub fn set_border_color(&mut self, color: Rgba<u8>) -> &mut Self {
+    pub fn set_border_color(&mut self, color: Color) -> &mut Self {
         self.border_color = color;
         self
     }
 
     /// Sets the color used for dark QR code modules.
-    pub fn set_dark_color(&mut self, color: Rgba<u8>) -> &mut Self {
+    pub fn set_dark_color(&mut self, color: Color) -> &mut Self {
         self.dark_color = color;
         self
     }
 
     /// Sets the color used for light QR code modules.
-    pub fn set_light_color(&mut self, color: Rgba<u8>) -> &mut Self {
+    pub fn set_light_color(&mut self, color: Color) -> &mut Self {
         self.light_color = color;
         self
     }
@@ -126,6 +119,27 @@ impl ImageQRCode {
         if !self.error.is_empty() {
             return Err(QRError::new("Invalid parameters"));
         }
+
+        let border_color = Rgba([
+            self.border_color.r,
+            self.border_color.g,
+            self.border_color.b,
+            self.border_color.a,
+        ]);
+
+        let dark_color = Rgba([
+            self.dark_color.r,
+            self.dark_color.g,
+            self.dark_color.b,
+            self.dark_color.a,
+        ]);
+
+        let light_color = Rgba([
+            self.light_color.r,
+            self.light_color.g,
+            self.light_color.b,
+            self.light_color.a,
+        ]);
 
         let mut img = ImageBuffer::new(self.width as u32, self.height as u32);
 
@@ -139,7 +153,7 @@ impl ImageQRCode {
         // Draw background.
         for y in 0..self.height {
             for x in 0..self.width {
-                img.put_pixel(x as u32, y as u32, self.border_color);
+                img.put_pixel(x as u32, y as u32, border_color);
             }
         }
 
@@ -147,9 +161,9 @@ impl ImageQRCode {
         for y in 0..self.qr_code.dimension() {
             for x in 0..self.qr_code.dimension() {
                 let color = if self.qr_code.get(x, y) {
-                    self.dark_color
+                    dark_color
                 } else {
-                    self.light_color
+                    light_color
                 };
                 for i in 0..pixel_size {
                     for j in 0..pixel_size {
@@ -174,19 +188,4 @@ impl ImageQRCode {
         img.save(path).map_err(|e| QRError::new(&e.to_string()))?;
         Ok(())
     }
-
-    /// Constructs a color using the given red, green, blue, and alpha components.
-    pub fn color(red: u8, green: u8, blue: u8, alpha: u8) -> Rgba<u8> {
-        Rgba([red, green, blue, alpha])
-    }
-
-    pub const WHITE: Rgba<u8> = Rgba([255, 255, 255, 255]);
-    pub const BLACK: Rgba<u8> = Rgba([0, 0, 0, 255]);
-    pub const RED: Rgba<u8> = Rgba([255, 0, 0, 255]);
-    pub const GREEN: Rgba<u8> = Rgba([0, 255, 0, 255]);
-    pub const BLUE: Rgba<u8> = Rgba([0, 0, 255, 255]);
-    pub const YELLOW: Rgba<u8> = Rgba([255, 255, 0, 255]);
-    pub const CYAN: Rgba<u8> = Rgba([0, 255, 255, 255]);
-    pub const MAGENTA: Rgba<u8> = Rgba([255, 0, 255, 255]);
-    pub const TRANSPARENT: Rgba<u8> = Rgba([0, 0, 0, 0]);
 }

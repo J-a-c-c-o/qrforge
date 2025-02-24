@@ -1,34 +1,9 @@
 #![cfg(feature = "svg")]
 use std::{fs::File, io::Write};
 
-use crate::{error::QRError, qrcode::QRCode};
+use crate::{enums::ErrorEnum, error::QRError, qrcode::QRCode, color::Color};
 
-#[derive(PartialEq)]
-enum ErrorEnum {
-    InvalidBorder,
-    InvalidWidth,
-    InvalidHeight,
-}
 
-/// Represents an RGBA color.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Color {
-    /// Red component.
-    pub r: u8,
-    /// Green component.
-    pub g: u8,
-    /// Blue component.
-    pub b: u8,
-    /// Alpha component.
-    pub a: u8,
-}
-
-impl Color {
-    /// Creates a new `Color` with the given red, green, blue, and alpha values.
-    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Color { r, g, b, a }
-    }
-}
 
 /// SvgQRCode builds SVG files.
 ///
@@ -87,9 +62,9 @@ impl SvgQRCode {
         if self.width - 2 * border < self.qr_code.dimension()
             || self.height - 2 * border < self.qr_code.dimension()
         {
-            self.error.push(ErrorEnum::InvalidBorder);
+            self.error.push(ErrorEnum::Border);
         } else {
-            self.error.retain(|e| *e != ErrorEnum::InvalidBorder);
+            self.error.retain(|e| *e != ErrorEnum::Border);
             self.border = border;
         }
         self
@@ -100,9 +75,9 @@ impl SvgQRCode {
     /// The width must be at least as large as the QR code dimension.
     pub fn set_width(&mut self, width: usize) -> &mut Self {
         if width < self.qr_code.dimension() {
-            self.error.push(ErrorEnum::InvalidWidth);
+            self.error.push(ErrorEnum::Width);
         } else {
-            self.error.retain(|e| *e != ErrorEnum::InvalidWidth);
+            self.error.retain(|e| *e != ErrorEnum::Width);
             self.width = width;
         }
         self
@@ -113,9 +88,9 @@ impl SvgQRCode {
     /// The height must be at least as large as the QR code dimension.
     pub fn set_height(&mut self, height: usize) -> &mut Self {
         if height < self.qr_code.dimension() {
-            self.error.push(ErrorEnum::InvalidHeight);
+            self.error.push(ErrorEnum::Height);
         } else {
-            self.error.retain(|e| *e != ErrorEnum::InvalidHeight);
+            self.error.retain(|e| *e != ErrorEnum::Height);
             self.height = height;
         }
         self
@@ -155,53 +130,6 @@ impl SvgQRCode {
 
         let border_width = (self.width - self.qr_code.dimension() * pixel_size) / 2;
         let border_height = (self.height - self.qr_code.dimension() * pixel_size) / 2;
-
-        // let mut document = Document::new()
-        //     .set("width", self.width.to_string())
-        //     .set("height", self.height.to_string())
-        //     .set("viewBox", format!("0 0 {} {}", self.width, self.height));
-
-        // // Add background.
-        // let background = Rectangle::new()
-        //     .set("width", "100%")
-        //     .set("height", "100%")
-        //     .set(
-        //         "fill",
-        //         format!(
-        //             "rgba({}, {}, {}, {})",
-        //             self.border_color.r,
-        //             self.border_color.g,
-        //             self.border_color.b,
-        //             self.border_color.a as f32 / 255.0
-        //         ),
-        //     );
-        // document = document.add(background);
-
-        // // Add QR code modules.
-        // for y in 0..self.qr_code.dimension() {
-        //     for x in 0..self.qr_code.dimension() {
-        //         if self.qr_code.get(x, y) {
-        //             let module = Rectangle::new()
-        //                 .set("x", x * pixel_size + border_width)
-        //                 .set("y", y * pixel_size + border_height)
-        //                 .set("width", pixel_size)
-        //                 .set("height", pixel_size)
-        //                 .set(
-        //                     "fill",
-        //                     format!(
-        //                         "rgba({}, {}, {}, {})",
-        //                         self.dark_color.r,
-        //                         self.dark_color.g,
-        //                         self.dark_color.b,
-        //                         self.dark_color.a as f32 / 255.0
-        //                     ),
-        //                 );
-        //             document = document.add(module);
-        //         }
-        //     }
-        // }
-
-        // Ok(document.to_string().into_bytes())
 
         let mut svg = Vec::new();
         svg.push(b'<');
@@ -275,64 +203,4 @@ impl SvgQRCode {
             .map_err(|e| QRError::new(&e.to_string()))?;
         Ok(())
     }
-
-    /// Constructs a color from red, green, blue, and alpha components.
-    pub fn color(red: u8, green: u8, blue: u8, alpha: u8) -> Color {
-        Color::new(red, green, blue, alpha)
-    }
-
-    pub const WHITE: Color = Color {
-        r: 255,
-        g: 255,
-        b: 255,
-        a: 255,
-    };
-    pub const BLACK: Color = Color {
-        r: 0,
-        g: 0,
-        b: 0,
-        a: 255,
-    };
-    pub const RED: Color = Color {
-        r: 255,
-        g: 0,
-        b: 0,
-        a: 255,
-    };
-    pub const GREEN: Color = Color {
-        r: 0,
-        g: 255,
-        b: 0,
-        a: 255,
-    };
-    pub const BLUE: Color = Color {
-        r: 0,
-        g: 0,
-        b: 255,
-        a: 255,
-    };
-    pub const YELLOW: Color = Color {
-        r: 255,
-        g: 255,
-        b: 0,
-        a: 255,
-    };
-    pub const CYAN: Color = Color {
-        r: 0,
-        g: 255,
-        b: 255,
-        a: 255,
-    };
-    pub const MAGENTA: Color = Color {
-        r: 255,
-        g: 0,
-        b: 255,
-        a: 255,
-    };
-    pub const TRANSPARENT: Color = Color {
-        r: 0,
-        g: 0,
-        b: 0,
-        a: 0,
-    };
 }

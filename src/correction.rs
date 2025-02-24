@@ -1,22 +1,15 @@
-use lazy_static::lazy_static;
-
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 use crate::{
-    constants::{BLOCK_LOOKUP, EC_CODEWORDS},
+    constants::{self, BLOCK_LOOKUP, EC_CODEWORDS},
     ErrorCorrection,
 };
-
-lazy_static! {
-    static ref GF_TABLES: ([u8; 256], [u8; 256]) = generate_gf_tables();
-}
 
 /// A block of data
 type Block = Vec<Vec<bool>>;
 /// A block of error correction data
 type ECBlock = Vec<Vec<bool>>;
-
 
 /// Perform error correction on the data
 pub(crate) fn correction(
@@ -27,11 +20,8 @@ pub(crate) fn correction(
     let blocks: Vec<Block> = split_into_blocks(combined_data, version, error_correction);
     let ec_codewords = ec_codewords(version, error_correction);
 
-    // Use pre-generated tables
-    let (antilog_table, log_table) = &*GF_TABLES;
-
     // Pre-generate generator polynomial once
-    let generator = generate_generator_polynomial(ec_codewords, log_table, antilog_table);
+    let generator = generate_generator_polynomial(ec_codewords);
 
     // Process blocks in parallel
     #[cfg(feature = "parallel")]
@@ -39,13 +29,7 @@ pub(crate) fn correction(
         .par_iter()
         .map(|block| {
             let polynomial = build_polynomial(block);
-            let result = part0(
-                ec_codewords,
-                &generator,
-                &polynomial,
-                log_table,
-                antilog_table,
-            );
+            let result = part0(ec_codewords, &generator, &polynomial);
 
             // Pre-allocate result vectors
             result
@@ -67,13 +51,7 @@ pub(crate) fn correction(
         .iter()
         .map(|block| {
             let polynomial = build_polynomial(block);
-            let result = part0(
-                ec_codewords,
-                &generator,
-                &polynomial,
-                log_table,
-                antilog_table,
-            );
+            let result = part0(ec_codewords, &generator, &polynomial);
 
             // Pre-allocate result vectors
             result
@@ -107,17 +85,13 @@ fn build_polynomial(data: &[Vec<bool>]) -> Vec<(u32, u32)> {
 }
 
 /// Generate generator polynomial
-fn generate_generator_polynomial(
-    ec_codewords: u32,
-    log_table: &[u8; 256],
-    antilog_table: &[u8; 256],
-) -> Vec<(u32, u32)> {
+fn generate_generator_polynomial(ec_codewords: u32) -> Vec<(u32, u32)> {
     // Start with X^1
     let mut polynomial = vec![(0, 1)]; // (coefficient α^0, exponent 1)
 
     // Multiply by (X + α^i) ec_codewords times
     for i in 0..ec_codewords {
-        polynomial = multiply_polynomial(&polynomial, i, log_table, antilog_table);
+        polynomial = multiply_polynomial(&polynomial, i);
     }
 
     polynomial.sort_by(|a, b| b.1.cmp(&a.1));
@@ -125,12 +99,7 @@ fn generate_generator_polynomial(
 }
 
 /// Multiply two polynomials
-fn multiply_polynomial(
-    polynomial: &[(u32, u32)],
-    alpha_power: u32,
-    log_table: &[u8; 256],
-    antilog_table: &[u8; 256],
-) -> Vec<(u32, u32)> {
+fn multiply_polynomial(polynomial: &[(u32, u32)], alpha_power: u32) -> Vec<(u32, u32)> {
     // Collect expanded terms
     let mut result_temp = Vec::with_capacity(polynomial.len() * 2);
     for &(coeff, exp) in polynomial {
@@ -144,10 +113,7 @@ fn multiply_polynomial(
     let mut result = Vec::new();
     for (val, e) in result_temp {
         if let Some(existing) = result.iter_mut().find(|(_, ex)| *ex == e) {
-            let tmp = lookup(
-                lookup(val, antilog_table) ^ lookup(existing.0, antilog_table),
-                log_table,
-            );
+            let tmp = lookup(reverse_lookup(val) ^ reverse_lookup(existing.0));
             existing.0 = tmp;
         } else {
             result.push((val, e));
@@ -157,13 +123,7 @@ fn multiply_polynomial(
 }
 
 /// first step of creating error correction codewords
-fn part0(
-    n: u32,
-    generator: &[(u32, u32)],
-    data_polynomial: &[(u32, u32)],
-    log_table: &[u8; 256],
-    antilog_table: &[u8; 256],
-) -> Vec<u32> {
+fn part0(n: u32, generator: &[(u32, u32)], data_polynomial: &[(u32, u32)]) -> Vec<u32> {
     let mut polynomial: Vec<(u32, u32)> = Vec::new();
     for (a, b) in data_polynomial.iter() {
         polynomial.push((*a, (*b) + n));
@@ -179,24 +139,16 @@ fn part0(
         &polynomial,
         &generator_polynomial,
         data_polynomial.len() as u32,
-        log_table,
-        antilog_table,
     )
 }
 
 /// Recursive step of creating error correction codewords
-fn partn(
-    polynomial: &[(u32, u32)],
-    generator: &[(u32, u32)],
-    n: u32,
-    log_table: &[u8; 256],
-    antilog_table: &[u8; 256],
-) -> Vec<u32> {
+fn partn(polynomial: &[(u32, u32)], generator: &[(u32, u32)], n: u32) -> Vec<u32> {
     if n == 0 {
         return polynomial.iter().map(|(a, _)| *a).collect();
     }
 
-    let lookup_value = lookup(polynomial[0].0, log_table);
+    let lookup_value = lookup(polynomial[0].0);
 
     // Pre-allocate new polynomial with max possible size
     let mut new_poly = Vec::with_capacity(max(polynomial.len(), generator.len()));
@@ -205,7 +157,7 @@ fn partn(
     for i in 1..max(polynomial.len(), generator.len()) {
         let poly_val = polynomial.get(i).map_or(0, |&(a, _)| a);
         let gen_val = if i < generator.len() {
-            lookup((generator[i].0 + lookup_value) % 255, antilog_table)
+            reverse_lookup((generator[i].0 + lookup_value) % 255)
         } else {
             0
         };
@@ -213,7 +165,7 @@ fn partn(
         new_poly.push((poly_val ^ gen_val, polynomial[0].1 - i as u32));
     }
 
-    partn(&new_poly, generator, n - 1, log_table, antilog_table)
+    partn(&new_poly, generator, n - 1)
 }
 
 /// Find maximum of two usize values
@@ -225,29 +177,12 @@ fn max(a: usize, b: usize) -> usize {
 }
 
 /// Perform a lookup in the log table
-fn lookup(a: u32, log_table: &[u8; 256]) -> u32 {
-    log_table[a as usize] as u32
+fn lookup(a: u32) -> u32 {
+    constants::LOG_TABLE[a as usize] as u32
 }
 
-/// Generate Galois Field tables
-fn generate_gf_tables() -> ([u8; 256], [u8; 256]) {
-    let primitive_polynomial: u16 = 285;
-    let mut antilog_table = [0u8; 256];
-    let mut log_table = [0u8; 256];
-
-    let mut value: u16 = 1;
-
-    for (i, antilog) in antilog_table.iter_mut().enumerate() {
-        *antilog = value as u8;
-        log_table[value as usize] = i as u8;
-
-        value <<= 1;
-        if value & 0x100 != 0 {
-            value ^= primitive_polynomial;
-        }
-    }
-    antilog_table[255] = antilog_table[0];
-    (antilog_table, log_table)
+fn reverse_lookup(a: u32) -> u32 {
+    constants::ANTILOG_TABLE[a as usize] as u32
 }
 
 /// Split data into correct sized blocks

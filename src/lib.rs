@@ -61,6 +61,9 @@ mod matrix_builder_micro;
 mod mode_selector;
 mod utils;
 
+pub mod color;
+pub use color::Color;
+
 pub mod enums;
 pub use enums::{ErrorCorrection, Mode, Version};
 

@@ -253,7 +253,6 @@ fn apply_mask(matrix: &mut QRCode, data_coordinates: Vec<(i32, i32)>) -> u32 {
         }
 
         *mask
-
     }
 }
 
