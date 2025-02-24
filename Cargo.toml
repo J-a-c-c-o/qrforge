@@ -2,6 +2,7 @@
 name = "qrforge"
 version = "0.1.0"
 authors = ["Jacco te Poel <jacco@tepoel.net>"]
+repository = "https://github.com/J-a-c-c-o/qrforge"
 description = "A QR code generator written in Rust"
 edition = "2021"
 keywords = ["qr", "qrcode", "generator", "rust", "image", "svg", "qrforge"]
