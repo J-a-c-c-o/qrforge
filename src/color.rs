@@ -1,5 +1,7 @@
 /// Represents an RGBA color.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+
+/// Represents an RGBA color.
 pub struct Color {
     /// Red component.
     pub r: u8,

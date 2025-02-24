@@ -103,6 +103,7 @@ pub enum Version {
 }
 
 #[cfg(any(feature = "image", feature = "svg"))]
+/// Represents the various errors that can occur when building an image.
 #[derive(PartialEq)]
 pub(crate) enum ErrorEnum {
     Border,
