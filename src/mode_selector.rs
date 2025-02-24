@@ -19,7 +19,7 @@ pub(crate) fn get_version(
     for i in 1..=40 {
         let mut data_size = 0;
         for (mode, data) in segments {
-            let (mode, data) = encode::encode_segment(i - 1, mode, data);
+            let (mode, data) = encode::encode_segment(i, mode, data);
             data_size += mode.len() + data.len();
         }
 
